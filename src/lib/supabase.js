@@ -28,6 +28,15 @@ const PESAN = {
   tidak_dapat_mengajukan: 'Pengajuan tidak dapat dilakukan.',
   pengguna_tidak_ada: 'Pengguna tidak ditemukan.',
   status_tidak_valid: 'Status tidak valid.',
+  ujian_belum_dibuka: 'Ujian ini belum dibuka.',
+  ujian_ditutup: 'Ujian ini sudah ditutup.',
+  percobaan_habis: 'Kesempatan mengerjakan sudah habis.',
+  ujian_belum_siap: 'Ujian ini belum siap. Guru belum menambahkan soal.',
+  sudah_dikerjakan: 'Sudah ada siswa yang mengerjakan ujian ini, jadi soal tidak bisa ditambah, dihapus, atau diganti tipenya.',
+  soal_tidak_valid: 'Soal belum lengkap atau tidak valid. Periksa teks soal, pilihan jawaban, dan kunci.',
+  belum_selesai: 'Percobaan ini belum dikumpulkan.',
+  jenis_tidak_bisa_diubah: 'Jenis pelajaran tidak bisa diubah.',
+  jawaban_tidak_valid: 'Jawaban tidak valid.',
 }
 
 // Mengubah galat teknis menjadi kalimat yang dapat dipahami pengguna.

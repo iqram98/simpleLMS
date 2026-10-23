@@ -51,7 +51,7 @@ function PratinjauRumus({ latex, blok }) {
   return <div className="rumus-pratinjau" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-export default function EditorTeks({ nilai, onChange, label = 'Isi teks' }) {
+export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringkas = false }) {
   const [panel, setPanel] = useState(null) // {jenis:'rumus'|'tautan'|'gambar', ...}
   const [galat, setGalat] = useState('')
 
@@ -65,7 +65,7 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks' }) {
   const editor = useEditor({
     extensions: ekstensi,
     content: bersihkan(nilai),
-    editorProps: { attributes: { class: 'rich rich-sunting', role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
+    editorProps: { attributes: { class: `rich rich-sunting${ringkas ? ' rich-ringkas' : ''}`, role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
     onUpdate: ({ editor: e }) => onChange(e.getJSON()),
   })
 
@@ -135,13 +135,15 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks' }) {
   }
 
   return (
-    <div className="editor-teks">
+    <div className={`editor-teks${ringkas ? ' ringkas' : ''}`}>
       <div className="alat-editor" role="toolbar" aria-label="Format teks">
-        <select aria-label="Gaya paragraf" value={s.gaya} onChange={(e) => ubahGaya(e.target.value)}>
-          <option value="p">Teks normal</option>
-          <option value="h2">Judul besar</option>
-          <option value="h3">Judul kecil</option>
-        </select>
+        {!ringkas && (
+          <select aria-label="Gaya paragraf" value={s.gaya} onChange={(e) => ubahGaya(e.target.value)}>
+            <option value="p">Teks normal</option>
+            <option value="h2">Judul besar</option>
+            <option value="h3">Judul kecil</option>
+          </select>
+        )}
         <Tombol label="Tebal" aktif={s.bold} onClick={() => c().toggleBold().run()}>
           <b>B</b>
         </Tombol>
@@ -151,46 +153,52 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks' }) {
         <Tombol label="Garis bawah" aktif={s.underline} onClick={() => c().toggleUnderline().run()}>
           <u>U</u>
         </Tombol>
-        <Tombol label="Coret" aktif={s.strike} onClick={() => c().toggleStrike().run()}>
-          <s>S</s>
-        </Tombol>
-        <Tombol label="Huruf kecil" aktif={s.kecil} onClick={() => c().toggleMark('kecil').run()}>
-          <small>Aa</small>
-        </Tombol>
-        <select aria-label="Warna teks" value={s.warna} onChange={(e) => ubahWarna(e.target.value)}>
-          <option value="">Warna biasa</option>
-          {WARNA.map((w) => (
-            <option key={w} value={w}>
-              {NAMA_WARNA[w]}
-            </option>
-          ))}
-        </select>
-        <span className="alat-pemisah" aria-hidden="true" />
-        <Tombol label="Daftar poin" aktif={s.bullet} onClick={() => c().toggleBulletList().run()}>
-          • ―
-        </Tombol>
-        <Tombol label="Daftar bernomor" aktif={s.urut} onClick={() => c().toggleOrderedList().run()}>
-          1.
-        </Tombol>
-        <Tombol label="Kutipan" aktif={s.kutip} onClick={() => c().toggleBlockquote().run()}>
-          ❝
-        </Tombol>
-        <Tombol label="Garis pemisah" onClick={() => c().setHorizontalRule().run()}>
-          ―
-        </Tombol>
-        <span className="alat-pemisah" aria-hidden="true" />
-        <Tombol label="Tautan" aktif={s.link} onClick={bukaTautan}>
-          🔗
-        </Tombol>
+        {!ringkas && (
+          <>
+            <Tombol label="Coret" aktif={s.strike} onClick={() => c().toggleStrike().run()}>
+              <s>S</s>
+            </Tombol>
+            <Tombol label="Huruf kecil" aktif={s.kecil} onClick={() => c().toggleMark('kecil').run()}>
+              <small>Aa</small>
+            </Tombol>
+            <select aria-label="Warna teks" value={s.warna} onChange={(e) => ubahWarna(e.target.value)}>
+              <option value="">Warna biasa</option>
+              {WARNA.map((w) => (
+                <option key={w} value={w}>
+                  {NAMA_WARNA[w]}
+                </option>
+              ))}
+            </select>
+            <span className="alat-pemisah" aria-hidden="true" />
+            <Tombol label="Daftar poin" aktif={s.bullet} onClick={() => c().toggleBulletList().run()}>
+              • ―
+            </Tombol>
+            <Tombol label="Daftar bernomor" aktif={s.urut} onClick={() => c().toggleOrderedList().run()}>
+              1.
+            </Tombol>
+            <Tombol label="Kutipan" aktif={s.kutip} onClick={() => c().toggleBlockquote().run()}>
+              ❝
+            </Tombol>
+            <Tombol label="Garis pemisah" onClick={() => c().setHorizontalRule().run()}>
+              ―
+            </Tombol>
+            <span className="alat-pemisah" aria-hidden="true" />
+            <Tombol label="Tautan" aktif={s.link} onClick={bukaTautan}>
+              🔗
+            </Tombol>
+          </>
+        )}
         <Tombol label="Gambar dari link" onClick={() => setPanel({ jenis: 'gambar', url: '', alt: '' })}>
           🖼
         </Tombol>
         <Tombol label="Rumus" onClick={() => setPanel({ jenis: 'rumus', blok: false, latex: '', pos: null })}>
           ∑
         </Tombol>
-        <Tombol label="Sisipkan tabel" onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
-          ▦
-        </Tombol>
+        {!ringkas && (
+          <Tombol label="Sisipkan tabel" onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>
+            ▦
+          </Tombol>
+        )}
         <span className="alat-pemisah" aria-hidden="true" />
         <Tombol label="Urungkan" disabled={!s.undo} onClick={() => c().undo().run()}>
           ↶
