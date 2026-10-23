@@ -1,6 +1,10 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
+import { bersihkan, dariTeksPolos, teksPolos } from '../editor/bersihkan.js'
 import { toEmbed, urlHttpsValid } from '../lib/embed.js'
-import { KotakGalat } from './ui.jsx'
+import { KotakGalat, Memuat } from './ui.jsx'
+
+// Editor dimuat hanya saat dibutuhkan agar halaman siswa tetap ringan.
+const EditorTeks = lazy(() => import('../editor/EditorTeks.jsx'))
 
 const JENIS = [
   { nilai: 'text', label: 'Teks' },
@@ -16,7 +20,7 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
   const [tipe, setTipe] = useState(awal?.type ?? 'embed')
   const [judul, setJudul] = useState(awal?.title ?? '')
   const [url, setUrl] = useState(awal?.url ?? '')
-  const [isi, setIsi] = useState(awal?.body_text ?? '')
+  const [dokumen, setDokumen] = useState(() => bersihkan(awal?.body_rich) ?? dariTeksPolos(awal?.body_text))
   const [tinggi, setTinggi] = useState(awal?.embed_height ? String(awal.embed_height) : '')
   const [galat, setGalat] = useState('')
 
@@ -29,7 +33,8 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
   const kirim = async (e) => {
     e.preventDefault()
     const u = url.trim()
-    const t = isi.trim()
+    const doc = bersihkan(dokumen)
+    const t = teksPolos(doc)
     if (butuhUrl && !urlHttpsValid(u)) return setGalat('Tempel link lengkap yang diawali https://')
     if (tipe === 'note' && u && !urlHttpsValid(u)) return setGalat('Link harus diawali https://')
     if (butuhIsi && !t) return setGalat('Isi teks tidak boleh kosong.')
@@ -45,6 +50,7 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
       title: judul.trim() || null,
       url: bolehUrl && u ? u : null,
       body_text: bolehIsi && t ? t : null,
+      body_rich: bolehIsi && t ? doc : null,
     })
   }
 
@@ -109,8 +115,12 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
       )}
       {bolehIsi && (
         <div className="kolom">
-          <label htmlFor="blok-isi">{tipe === 'note' ? 'Catatan' : 'Isi teks'}</label>
-          <textarea id="blok-isi" value={isi} onChange={(e) => setIsi(e.target.value)} />
+          <span id="blok-isi-label" className="label-palsu">
+            {tipe === 'note' ? 'Catatan' : 'Isi teks'}
+          </span>
+          <Suspense fallback={<Memuat teks="Memuat editor…" />}>
+            <EditorTeks nilai={dokumen} onChange={setDokumen} label={tipe === 'note' ? 'Catatan' : 'Isi teks'} />
+          </Suspense>
         </div>
       )}
       <KotakGalat galat={galat} />

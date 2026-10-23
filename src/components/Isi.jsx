@@ -1,4 +1,19 @@
+import { lazy, Suspense } from 'react'
 import { toEmbed } from '../lib/embed.js'
+
+// Penampil teks berformat dimuat hanya bila ada blok yang memakainya.
+const TeksKaya = lazy(() => import('../editor/TeksKaya.jsx'))
+
+function IsiTeks({ blok }) {
+  if (blok.body_rich) {
+    return (
+      <Suspense fallback={<p className="memuat">Memuat…</p>}>
+        <TeksKaya doc={blok.body_rich} />
+      </Suspense>
+    )
+  }
+  return <p className="teks">{blok.body_text}</p>
+}
 
 // Menampilkan satu blok konten pelajaran. Dipakai di tampilan siswa dan pratinjau guru.
 export function BlokView({ blok }) {
@@ -6,7 +21,7 @@ export function BlokView({ blok }) {
     return (
       <section className="blok">
         {blok.title && <h3>{blok.title}</h3>}
-        <p className="teks">{blok.body_text}</p>
+        <IsiTeks blok={blok} />
       </section>
     )
   }
@@ -63,7 +78,7 @@ export function BlokView({ blok }) {
     <section className="blok catatan">
       <p className="label-catatan">Catatan guru · tidak terlihat siswa</p>
       {blok.title && <h3>{blok.title}</h3>}
-      {blok.body_text && <p className="teks">{blok.body_text}</p>}
+      {blok.body_text && <IsiTeks blok={blok} />}
       {blok.url && (
         <a className="btn kecil" href={blok.url} target="_blank" rel="noopener noreferrer">
           Buka dokumen ↗
