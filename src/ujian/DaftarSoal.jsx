@@ -2,8 +2,11 @@ import { lazy, Suspense, useState } from 'react'
 import { Kosong, KotakGalat, Memuat, TombolKonfirmasi } from '../components/ui.jsx'
 import { useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
-import { NAMA_TIPE } from './konstanta.js'
+import { adalahSurvei, NAMA_TIPE } from './konstanta.js'
 import SoalForm from './SoalForm.jsx'
+import SalinSoal from './SalinSoal.jsx'
+import TempelSoal from './TempelSoal.jsx'
+import { payloadDariSoal } from './payload.js'
 
 const TeksKaya = lazy(() => import('../editor/TeksKaya.jsx'))
 
@@ -79,28 +82,10 @@ export default function DaftarSoal({ pelajaranId }) {
       ),
     )
   }
-  const duplikat = (s) => {
-    const k = kunci[s.id]
-    return ubah(async () =>
-      ambil(
-        await supabase.rpc('simpan_soal', {
-          pelajaran: pelajaranId,
-          id_soal: null,
-          data: {
-            type: s.type,
-            prompt_rich: s.prompt_rich,
-            prompt_text: s.prompt_text,
-            options: s.options,
-            points: s.points,
-            config: s.config ?? {},
-            kunci: k?.kunci,
-            pembahasan_rich: k?.pembahasan_rich ?? null,
-            pembahasan_text: k?.pembahasan_text ?? null,
-          },
-        }),
-      ),
+  const duplikat = (s) =>
+    ubah(async () =>
+      ambil(await supabase.rpc('simpan_soal', { pelajaran: pelajaranId, id_soal: null, data: payloadDariSoal(s, kunci[s.id]) })),
     )
-  }
   const hitungUlang = () =>
     jalankan(async () => {
       const n = ambil(await supabase.rpc('nilai_ulang_ujian', { pelajaran: pelajaranId }))
@@ -108,6 +93,17 @@ export default function DaftarSoal({ pelajaranId }) {
       await muatUlang()
     })
 
+  const selesaiMasal = (n, sebagian = false) => {
+    if (!sebagian) setForm(null)
+    setInfo(`${n} soal ditambahkan.`)
+    muatUlang()
+  }
+  if (form === 'tempel') {
+    return <TempelSoal pelajaranId={pelajaranId} onSelesai={selesaiMasal} onBatal={() => setForm(null)} />
+  }
+  if (form === 'salin') {
+    return <SalinSoal pelajaranId={pelajaranId} onSelesai={selesaiMasal} onBatal={() => setForm(null)} />
+  }
   if (form) {
     return (
       <SoalForm
@@ -147,6 +143,16 @@ export default function DaftarSoal({ pelajaranId }) {
             + Tambah soal
           </button>
         )}
+        {!sudah && (
+          <>
+            <button type="button" className="btn kecil" onClick={() => setForm('tempel')}>
+              Tempel banyak soal
+            </button>
+            <button type="button" className="btn kecil" onClick={() => setForm('salin')}>
+              Salin dari ujian lain
+            </button>
+          </>
+        )}
         {sudah && (
           <button type="button" className="btn kecil" disabled={sibuk} onClick={hitungUlang}>
             Hitung ulang nilai
@@ -162,7 +168,7 @@ export default function DaftarSoal({ pelajaranId }) {
               <div className="baris rapat">
                 <strong>{i + 1}.</strong>
                 <span className="lencana">{NAMA_TIPE[s.type] ?? s.type}</span>
-                <span className="petunjuk">{Number(s.points)} poin</span>
+                <span className="petunjuk">{adalahSurvei(s.type) ? 'tanpa nilai' : `${Number(s.points)} poin`}</span>
               </div>
               <div className="soal-teks">
                 <Suspense fallback={null}>

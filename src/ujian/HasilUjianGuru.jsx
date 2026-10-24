@@ -2,14 +2,29 @@ import { useMemo, useState } from 'react'
 import { Kosong, KotakGalat, Memuat } from '../components/ui.jsx'
 import { useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
-import { analisisButir, barisSiswa, ringkasan } from './analisis.js'
+import { adalahJenisSurvei, analisisButir, barisSiswa, rekapSurvei, ringkasan } from './analisis.js'
 import { unduhCsv } from './csv.js'
 import { NAMA_TIPE } from './konstanta.js'
 import HasilUjian from './HasilUjian.jsx'
+import PenilaianUraian from './PenilaianUraian.jsx'
 
 const angka = (n) => (n == null ? '-' : String(Math.round(Number(n) * 100) / 100).replace('.', ','))
-const LABEL = { lulus: 'Lulus', belum_lulus: 'Belum lulus', berjalan: 'Sedang mengerjakan', belum: 'Belum mengerjakan' }
-const KELAS_LENCANA = { lulus: 'status-aktif', belum_lulus: 'status-ditolak', berjalan: '', belum: '' }
+const LABEL = {
+  lulus: 'Lulus',
+  belum_lulus: 'Belum lulus',
+  menunggu: 'Menunggu penilaian',
+  terkirim: 'Sudah mengisi',
+  berjalan: 'Sedang mengerjakan',
+  belum: 'Belum mengerjakan',
+}
+const KELAS_LENCANA = {
+  lulus: 'status-aktif',
+  belum_lulus: 'status-ditolak',
+  terkirim: 'status-aktif',
+  menunggu: '',
+  berjalan: '',
+  belum: '',
+}
 
 // Hasil satu ujian untuk guru: ringkasan, nilai per siswa, rincian percobaan, analisis butir, unduh CSV.
 export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
@@ -25,7 +40,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
       supabase.from('soal_kunci').select('soal_id,kunci,soal!inner(lesson_id)').eq('soal.lesson_id', pelajaranId),
       supabase
         .from('percobaan')
-        .select('id,user_id,nomor,status,nilai,skor,skor_maks,selesai_pada,jawaban')
+        .select('id,user_id,nomor,status,nilai,skor,skor_maks,perlu_dinilai,selesai_pada,jawaban')
         .eq('lesson_id', pelajaranId)
         .order('nomor'),
       supabase
@@ -74,7 +89,17 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
     return {
       baris,
       ring: ringkasan(baris),
-      butir: analisisButir({ soal: data.soal, kunci: data.kunci, percobaan: selesai, hasil: data.hasil }),
+      butir: analisisButir({
+        soal: data.soal.filter((x) => !adalahJenisSurvei(x.type)),
+        kunci: data.kunci,
+        percobaan: selesai,
+        hasil: data.hasil,
+      }),
+      survei: rekapSurvei({
+        soal: data.soal,
+        percobaan,
+        nama: Object.fromEntries(siswa.map((x) => [x.user_id, x.nama])),
+      }),
       namaPer: Object.fromEntries(siswa.map((s) => [s.user_id, s.nama])),
     }
   }, [data, pilih])
@@ -83,7 +108,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
   if (error) return <KotakGalat galat={pesanError(error)} />
   if (data.kelas.length === 0) return <Kosong>Belum ada kelas yang memakai kursus ini, jadi belum ada hasil.</Kosong>
 
-  const { baris, ring, butir } = tampil
+  const { baris, ring, butir, survei } = tampil
   const maks = data.st.maks_percobaan
   const namaKelas = data.kelas.find((k) => k.id === pilih)?.name ?? ''
 
@@ -102,7 +127,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
       b.email,
       ...Array.from({ length: maks }, (_, i) => {
         const p = b.selesai.find((x) => x.nomor === i + 1)
-        return p ? angka(p.nilai) : ''
+        return p && !p.perlu_dinilai ? angka(p.nilai) : ''
       }),
       b.nilai == null ? '' : angka(b.nilai),
       LABEL[b.status],
@@ -149,6 +174,12 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
           <dt>Lulus (KKM {angka(data.st.kkm)})</dt>
           <dd>{ring.lulus}</dd>
         </div>
+        {ring.menunggu > 0 && (
+          <div>
+            <dt>Menunggu dinilai</dt>
+            <dd>{ring.menunggu}</dd>
+          </div>
+        )}
         <div>
           <dt>Rata-rata</dt>
           <dd>{angka(ring.rata)}</dd>
@@ -160,6 +191,8 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
           </dd>
         </div>
       </dl>
+
+      <PenilaianUraian pelajaranId={pelajaranId} onUbah={muatUlang} />
 
       <div className="baris">
         <h3 style={{ margin: 0 }}>Nilai siswa</h3>
@@ -198,11 +231,11 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
                           key={p.id}
                           type="button"
                           className="btn kecil"
-                          aria-label={`Rincian percobaan ${p.nomor} ${b.nama}, nilai ${angka(p.nilai)}`}
+                          aria-label={`Rincian percobaan ${p.nomor} ${b.nama}, nilai ${p.perlu_dinilai ? 'menunggu penilaian' : angka(p.nilai)}`}
                           aria-pressed={lihat === p.id}
                           onClick={() => setLihat(lihat === p.id ? null : p.id)}
                         >
-                          {p.nomor}: {angka(p.nilai)}
+                          {p.nomor}: {p.perlu_dinilai ? 'perlu dinilai' : angka(p.nilai)}
                         </button>
                       ))}
                     </div>
@@ -268,7 +301,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
                     {angka(x.rataPoin)} / {angka(x.soal.points)}
                   </td>
                   <td>
-                    {x.soal.type === 'isian_singkat' ? (
+                    {x.opsi.length === 0 ? (
                       <span className="petunjuk">Kosong: {x.kosong}</span>
                     ) : (
                       <span>
@@ -287,6 +320,65 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {survei.length > 0 && (
+        <section className="kolom" aria-labelledby="judul-survei">
+          <h3 id="judul-survei">Rekap survei</h3>
+          <p className="petunjuk">Memakai jawaban terakhir tiap siswa. Survei ini tidak anonim: nama siswa terlihat oleh guru.</p>
+          {survei.map((r, i) => (
+            <div key={r.soal.id} className="soal-item">
+              <strong>{r.soal.prompt_text}</strong>
+              <span className="petunjuk">
+                {r.n} dari {r.tanggapan} siswa menjawab
+              </span>
+              {r.opsi && (
+                <ul className="rekap">
+                  {r.opsi.map((o, n) => (
+                    <li key={o.id}>
+                      <span>
+                        {String.fromCharCode(65 + n)}. {o.teks}
+                      </span>
+                      <span className="bar-mini" aria-hidden="true">
+                        <span style={{ width: `${r.n ? (100 * o.jumlah) / r.n : 0}%` }} />
+                      </span>
+                      <span>{o.jumlah}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {r.sebaran && (
+                <>
+                  <p>
+                    Rata-rata: <strong>{angka(r.rata)}</strong> dari 5
+                  </p>
+                  <ul className="rekap">
+                    {r.sebaran.map((j, n) => (
+                      <li key={n}>
+                        <span>{n + 1}</span>
+                        <span className="bar-mini" aria-hidden="true">
+                          <span style={{ width: `${r.n ? (100 * j) / r.n : 0}%` }} />
+                        </span>
+                        <span>{j}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {r.teks && (
+                <ul className="rekap-teks">
+                  {r.teks.length === 0 && <li className="petunjuk">Belum ada jawaban.</li>}
+                  {r.teks.map((t, n) => (
+                    <li key={n}>
+                      <span className="jawaban-teks">{t.teks}</span>
+                      <span className="petunjuk">{t.nama}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </section>
       )}
     </div>
   )

@@ -400,3 +400,31 @@ th { font-size: 0.85rem; color: var(--redup); font-weight: 600; background: var(
 .panel .persen { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 600; }
 .kartu .sub { color: var(--aksen-teks); font-weight: 600; font-size: 0.85rem; margin: 0; }
 .sebaran { display: inline-block; margin-right: 12px; white-space: nowrap; }
+
+/* tipe soal menjodohkan, mengurutkan, rumpang */
+.jodoh, .urut { display: grid; gap: 12px; }
+.jodoh-kanan { list-style: none; margin: 0; padding: 12px; display: grid; gap: 8px; background: var(--permukaan); border-radius: 12px; }
+.jodoh-kanan li, .jodoh-baris, .urut-item { display: flex; gap: 10px; align-items: flex-start; }
+.jodoh-baris { border: 1px solid var(--garis); border-radius: 12px; padding: 10px 12px; background: var(--kartu); align-items: center; }
+.jodoh-baris select { width: auto; min-width: 84px; flex: none; }
+.urut-daftar { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.urut-item { border: 1px solid var(--garis); border-radius: 12px; padding: 10px 12px; background: var(--kartu); align-items: center; }
+.urut-item .pilihan-isi { flex: 1; min-width: 0; }
+.urut-bandingan { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.urut-bandingan ol { margin: 4px 0 0; padding-left: 22px; }
+
+/* uraian dan survei */
+.jawaban-teks { white-space: pre-wrap; background: var(--permukaan); border-radius: 10px; padding: 10px 12px; margin: 0; overflow-wrap: anywhere; }
+.nilai-besar.tunggu { font-size: 1.5rem; }
+.skala { display: flex; gap: 8px; flex-wrap: wrap; }
+.skala-angka { display: inline-flex; align-items: center; justify-content: center; min-width: 52px; min-height: 52px; border: 1px solid var(--garis); border-radius: 12px; cursor: pointer; font-weight: 700; background: var(--kartu); position: relative; }
+.skala-angka input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.skala-angka.dipilih { border-color: var(--aksen); background: var(--aksen-lembut); color: var(--aksen-teks); }
+.skala-angka:focus-within { outline: 3px solid var(--aksen); outline-offset: 2px; }
+.skala-label { display: flex; justify-content: space-between; gap: 12px; font-size: 0.9rem; color: var(--redup); }
+.rekap { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.rekap li { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(80px, 2fr) 2.5em; gap: 10px; align-items: center; }
+.bar-mini { display: block; height: 10px; background: var(--permukaan); border-radius: 999px; overflow: hidden; }
+.bar-mini > span { display: block; height: 100%; background: var(--aksen); }
+.rekap-teks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rekap-teks li { display: grid; gap: 2px; }

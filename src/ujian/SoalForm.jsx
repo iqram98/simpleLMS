@@ -1,7 +1,8 @@
 import { lazy, Suspense, useState } from 'react'
 import { KotakGalat, Memuat } from '../components/ui.jsx'
 import { bersihkan, dariTeksPolos, teksPolos } from '../editor/bersihkan.js'
-import { HURUF, TIPE_SOAL } from './konstanta.js'
+import { adalahSurvei, HURUF, TIPE_SOAL } from './konstanta.js'
+import { FormMengurutkan, FormMenjodohkan, FormRumpang, nomorRumpang } from './TipeBaru.jsx'
 
 const EditorTeks = lazy(() => import('../editor/EditorTeks.jsx'))
 
@@ -10,6 +11,18 @@ const dokTeks = (t) => ({
   content: [{ type: 'paragraph', content: [{ type: 'text', text: t }] }],
 })
 const kosong = () => ({ type: 'doc', content: [{ type: 'paragraph' }] })
+
+// Daftar {id, dok} menjadi [{id, rich, text}], atau null bila ada yang kosong.
+function susun(daftar) {
+  const hasil = []
+  for (const o of daftar) {
+    const d = bersihkan(o.dok)
+    const t = teksPolos(d)
+    if (!t) return null
+    hasil.push({ id: o.id, rich: d, text: t })
+  }
+  return hasil
+}
 
 function opsiAwal(tipe) {
   if (tipe === 'benar_salah') {
@@ -42,15 +55,31 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
   const [isian, setIsian] = useState(() => (k?.kunci?.jawaban?.length ? k.kunci.jawaban : ['']))
   const [sebagian, setSebagian] = useState(Boolean(s?.config?.nilai_sebagian))
   const [pembahasan, setPembahasan] = useState(() => bersihkan(k?.pembahasan_rich) ?? kosong())
+  const [kiri, setKiri] = useState(() =>
+    s?.type === 'menjodohkan' && s.options?.length
+      ? s.options.map((o) => ({ id: o.id, dok: bersihkan(o.rich) ?? kosong() }))
+      : ['a', 'b', 'c'].map((id) => ({ id, dok: kosong() })),
+  )
+  const [kanan, setKanan] = useState(() =>
+    s?.type === 'menjodohkan' && s.config?.kanan?.length
+      ? s.config.kanan.map((o) => ({ id: o.id, dok: bersihkan(o.rich) ?? kosong() }))
+      : ['k1', 'k2', 'k3'].map((id) => ({ id, dok: kosong() })),
+  )
+  const [pasangan, setPasangan] = useState(() => k?.kunci?.pasangan ?? {})
+  const [kunciRumpang, setKunciRumpang] = useState(() => k?.kunci?.rumpang ?? {})
+  const [labelRendah, setLabelRendah] = useState(s?.config?.label_rendah ?? '')
+  const [labelTinggi, setLabelTinggi] = useState(s?.config?.label_tinggi ?? '')
   const [galat, setGalat] = useState('')
   const [versi, setVersi] = useState(0) // memaksa editor dibuat ulang saat tipe berganti
   const mengubah = Boolean(s)
 
   const ganti = (t) => {
     setTipe(t)
+    if (['menjodohkan', 'mengurutkan', 'rumpang'].includes(t)) setSebagian(true)
+    else if (t !== 'pilihan_kompleks') setSebagian(false)
     setBenar([])
     setGalat('')
-    if (t === 'isian_singkat') setOpsi([])
+    if (['isian_singkat', 'rumpang', 'menjodohkan', 'uraian', 'survei_skala', 'survei_teks'].includes(t)) setOpsi([])
     else if (t === 'benar_salah') setOpsi(opsiAwal('benar_salah'))
     else if (!opsi.length || opsi.some((o) => o.id === 'benar' || o.id === 'salah')) setOpsi(opsiAwal(t))
     setVersi((v) => v + 1)
@@ -72,8 +101,9 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
 
   const kirim = async (e) => {
     e.preventDefault()
-    const p = Number(String(poin).replace(',', '.'))
-    if (!Number.isFinite(p) || p <= 0 || p > 1000) return setGalat('Poin harus lebih dari 0 dan paling banyak 1000.')
+    const survei = adalahSurvei(tipe)
+    const p = survei ? 0 : Number(String(poin).replace(',', '.'))
+    if (!survei && (!Number.isFinite(p) || p <= 0 || p > 1000)) return setGalat('Poin harus lebih dari 0 dan paling banyak 1000.')
     const docSoal = bersihkan(prompt)
     const teksSoal = teksPolos(docSoal)
     if (!teksSoal) return setGalat('Teks soal tidak boleh kosong.')
@@ -86,10 +116,50 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
       options: [],
       config: {},
     }
-    if (tipe === 'isian_singkat') {
+    if (tipe === 'uraian' || tipe === 'survei_teks') {
+      payload.kunci = {}
+    } else if (tipe === 'survei_skala') {
+      payload.kunci = {}
+      payload.config = { label_rendah: labelRendah.trim().slice(0, 60), label_tinggi: labelTinggi.trim().slice(0, 60) }
+    } else if (tipe === 'survei_pilihan') {
+      const hasil = susun(opsi)
+      if (!hasil) return setGalat('Setiap pilihan jawaban harus berisi teks.')
+      if (hasil.length < 2) return setGalat('Minimal ada dua pilihan jawaban.')
+      payload.options = hasil
+      payload.kunci = {}
+    } else if (tipe === 'isian_singkat') {
       const jawaban = isian.map((j) => j.trim()).filter(Boolean)
       if (!jawaban.length) return setGalat('Isi paling sedikit satu jawaban yang diterima.')
       payload.kunci = { jawaban: [...new Set(jawaban)] }
+    } else if (tipe === 'menjodohkan') {
+      const kiriOk = susun(kiri)
+      const kananOk = susun(kanan)
+      if (!kiriOk || !kananOk) return setGalat('Setiap item kiri dan kanan harus berisi teks.')
+      if (kanan.length < kiri.length) return setGalat('Item kanan tidak boleh lebih sedikit daripada item kiri.')
+      if (kiri.some((x) => !pasangan[x.id] || !kanan.some((y) => y.id === pasangan[x.id]))) {
+        return setGalat('Pilih pasangan yang benar untuk setiap item kiri.')
+      }
+      payload.options = kiriOk
+      payload.config = { nilai_sebagian: sebagian, kanan: kananOk }
+      payload.kunci = { pasangan: Object.fromEntries(kiri.map((x) => [x.id, pasangan[x.id]])) }
+    } else if (tipe === 'mengurutkan') {
+      const hasil = susun(opsi)
+      if (!hasil) return setGalat('Setiap item harus berisi teks.')
+      if (hasil.length < 2) return setGalat('Minimal ada dua item.')
+      payload.options = hasil
+      payload.config = { nilai_sebagian: sebagian }
+      payload.kunci = { urutan: hasil.map((x) => x.id) }
+    } else if (tipe === 'rumpang') {
+      const nomor = nomorRumpang(teksSoal)
+      if (nomor.length === 0) return setGalat('Tulis penanda [[1]] di teks soal pada tempat bagian yang kosong.')
+      const kunci = {}
+      for (const n of nomor) {
+        const j = [...new Set((kunciRumpang[n] ?? []).map((x) => x.trim()).filter(Boolean))]
+        if (!j.length) return setGalat(`Isi jawaban yang diterima untuk bagian [${n}].`)
+        kunci[n] = j
+      }
+      payload.config = { nilai_sebagian: sebagian }
+      payload.kunci = { rumpang: kunci }
     } else {
       if (opsi.length < 2) return setGalat('Minimal ada dua pilihan jawaban.')
       const hasil = []
@@ -131,10 +201,12 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
           </select>
           {tipeTerkunci && <span className="petunjuk">Tipe tidak bisa diganti setelah ada siswa yang mengerjakan.</span>}
         </div>
-        <div className="kolom" style={{ flex: '0 0 120px' }}>
-          <label htmlFor="soal-poin">Poin</label>
-          <input id="soal-poin" inputMode="decimal" value={poin} onChange={(e) => setPoin(e.target.value)} />
-        </div>
+        {!adalahSurvei(tipe) && (
+          <div className="kolom" style={{ flex: '0 0 120px' }}>
+            <label htmlFor="soal-poin">Poin</label>
+            <input id="soal-poin" inputMode="decimal" value={poin} onChange={(e) => setPoin(e.target.value)} />
+          </div>
+        )}
       </div>
 
       <div className="kolom">
@@ -146,21 +218,27 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
         </Suspense>
       </div>
 
-      {tipe !== 'isian_singkat' && (
+      {['pilihan_ganda', 'benar_salah', 'pilihan_kompleks', 'survei_pilihan'].includes(tipe) && (
         <fieldset className="pilihan-soal">
           <legend>
-            {tipe === 'pilihan_kompleks' ? 'Pilihan jawaban (centang semua yang benar)' : 'Pilihan jawaban (pilih yang benar)'}
+            {tipe === 'pilihan_kompleks'
+              ? 'Pilihan jawaban (centang semua yang benar)'
+              : tipe === 'survei_pilihan'
+                ? 'Pilihan jawaban (tanpa kunci)'
+                : 'Pilihan jawaban (pilih yang benar)'}
           </legend>
           {opsi.map((o, i) => (
             <div className="opsi-baris" key={`${versi}-${o.id}`}>
               <label className="opsi-tanda">
-                <input
-                  type={tipe === 'pilihan_kompleks' ? 'checkbox' : 'radio'}
-                  name="kunci"
-                  checked={benar.includes(o.id)}
-                  onChange={() => pilihBenar(o.id)}
-                  aria-label={`Jawaban benar: pilihan ${nomorOpsi(i)}`}
-                />
+                {tipe !== 'survei_pilihan' && (
+                  <input
+                    type={tipe === 'pilihan_kompleks' ? 'checkbox' : 'radio'}
+                    name="kunci"
+                    checked={benar.includes(o.id)}
+                    onChange={() => pilihBenar(o.id)}
+                    aria-label={`Jawaban benar: pilihan ${nomorOpsi(i)}`}
+                  />
+                )}
                 <span>{tetap ? '' : nomorOpsi(i)}</span>
               </label>
               <div className="opsi-isi">
@@ -236,13 +314,68 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
         </fieldset>
       )}
 
-      <div className="kolom">
-        <span className="label-palsu">Pembahasan (boleh kosong)</span>
-        <Suspense fallback={<Memuat teks="Memuat editor…" />}>
-          <EditorTeks key={`b${versi}`} nilai={pembahasan} onChange={setPembahasan} label="Pembahasan" />
-        </Suspense>
-        <span className="petunjuk">Hanya terlihat siswa bila pengaturan ujian mengizinkan.</span>
-      </div>
+      {tipe === 'menjodohkan' && (
+        <FormMenjodohkan
+          kiri={kiri}
+          setKiri={setKiri}
+          kanan={kanan}
+          setKanan={setKanan}
+          pasangan={pasangan}
+          setPasangan={setPasangan}
+          versi={versi}
+        />
+      )}
+      {tipe === 'mengurutkan' && <FormMengurutkan opsi={opsi} setOpsi={setOpsi} versi={versi} />}
+      {tipe === 'rumpang' && (
+        <FormRumpang nomor={nomorRumpang(teksPolos(bersihkan(prompt)))} kunci={kunciRumpang} setKunci={setKunciRumpang} />
+      )}
+      {['menjodohkan', 'mengurutkan', 'rumpang'].includes(tipe) && (
+        <label className="baris rapat">
+          <input
+            type="checkbox"
+            checked={sebagian}
+            onChange={(e) => setSebagian(e.target.checked)}
+            style={{ width: 'auto', minHeight: 0 }}
+          />
+          Beri nilai sebagian bila hanya sebagian jawaban yang benar
+        </label>
+      )}
+
+      {tipe === 'uraian' && (
+        <p className="info">
+          Siswa mengetik jawaban sendiri. Setelah siswa mengumpulkan, Anda menilainya di tab Hasil. Isi contoh jawaban atau rubrik
+          di kolom di bawah agar mudah dirujuk saat menilai.
+        </p>
+      )}
+      {adalahSurvei(tipe) && (
+        <p className="info">
+          Soal survei tidak punya kunci dan tidak dihitung dalam nilai. Rekap jawaban kelas ada di tab Hasil.
+        </p>
+      )}
+      {tipe === 'survei_skala' && (
+        <div className="form-baris">
+          <div className="kolom">
+            <label htmlFor="skala-rendah">Label angka 1 (boleh kosong)</label>
+            <input id="skala-rendah" value={labelRendah} maxLength={60} onChange={(e) => setLabelRendah(e.target.value)} />
+          </div>
+          <div className="kolom">
+            <label htmlFor="skala-tinggi">Label angka 5 (boleh kosong)</label>
+            <input id="skala-tinggi" value={labelTinggi} maxLength={60} onChange={(e) => setLabelTinggi(e.target.value)} />
+          </div>
+        </div>
+      )}
+
+      {!adalahSurvei(tipe) && (
+        <div className="kolom">
+          <span className="label-palsu">
+            {tipe === 'uraian' ? 'Contoh jawaban atau rubrik (boleh kosong)' : 'Pembahasan (boleh kosong)'}
+          </span>
+          <Suspense fallback={<Memuat teks="Memuat editor…" />}>
+            <EditorTeks key={`b${versi}`} nilai={pembahasan} onChange={setPembahasan} label="Pembahasan" />
+          </Suspense>
+          <span className="petunjuk">Hanya terlihat siswa bila pengaturan ujian mengizinkan.</span>
+        </div>
+      )}
 
       <KotakGalat galat={galat} />
       <div className="baris">

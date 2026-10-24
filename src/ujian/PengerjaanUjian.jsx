@@ -3,8 +3,9 @@ import { KotakGalat } from '../components/ui.jsx'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
 import { sisaWaktu } from './konstanta.js'
 import Teks from './Teks.jsx'
+import { terisi, tampilRumpang } from './TipeBaru.jsx'
 
-const sudahDijawab = (j) => (Array.isArray(j) ? j.length > 0 : typeof j === 'string' ? j.trim() !== '' : j != null)
+const sudahDijawab = terisi
 
 // Layar mengerjakan ujian: satu soal per layar, jawaban tersimpan otomatis,
 // waktu mengikuti jam server, dikumpulkan otomatis saat waktu habis.
@@ -168,7 +169,7 @@ export default function PengerjaanUjian({ data, onSelesai }) {
       {!konfirmasi && s && (
         <div className="soal-layar">
           <div className="soal-teks-penuh">
-            <Teks doc={s.prompt_rich} />
+            <Teks doc={s.type === 'rumpang' ? tampilRumpang(s.prompt_rich) : s.prompt_rich} />
           </div>
           <Jawaban soal={s} nilai={jawab[s.id]} onUbah={(v) => ubah(s.id, v)} />
           <div className="pager">
@@ -222,6 +223,11 @@ export default function PengerjaanUjian({ data, onSelesai }) {
 }
 
 function Jawaban({ soal, nilai, onUbah }) {
+  if (soal.type === 'menjodohkan') return <JawabanJodoh soal={soal} nilai={nilai} onUbah={onUbah} />
+  if (soal.type === 'mengurutkan') return <JawabanUrut soal={soal} nilai={nilai} onUbah={onUbah} />
+  if (soal.type === 'rumpang') return <JawabanRumpang soal={soal} nilai={nilai} onUbah={onUbah} />
+  if (soal.type === 'uraian' || soal.type === 'survei_teks') return <JawabanTeks soal={soal} nilai={nilai} onUbah={onUbah} />
+  if (soal.type === 'survei_skala') return <JawabanSkala soal={soal} nilai={nilai} onUbah={onUbah} />
   if (soal.type === 'isian_singkat') {
     return (
       <div className="kolom">
@@ -259,6 +265,173 @@ function Jawaban({ soal, nilai, onUbah }) {
           </label>
         )
       })}
+    </fieldset>
+  )
+}
+
+const huruf = (n) => String.fromCharCode(65 + n)
+
+function JawabanJodoh({ soal, nilai, onUbah }) {
+  const j = nilai && typeof nilai === 'object' && !Array.isArray(nilai) ? nilai : {}
+  return (
+    <div className="jodoh">
+      <p className="petunjuk">Pilih huruf pasangan yang tepat untuk setiap item.</p>
+      <ol className="jodoh-kanan" aria-label="Pilihan pasangan">
+        {soal.kanan.map((y, n) => (
+          <li key={y.id}>
+            <span className="pilihan-huruf">{huruf(n)}</span>
+            <span className="pilihan-isi">
+              <Teks doc={y.rich} />
+            </span>
+          </li>
+        ))}
+      </ol>
+      {soal.options.map((x, i) => (
+        <div className="jodoh-baris" key={x.id}>
+          <span className="pilihan-huruf">{i + 1}</span>
+          <span className="pilihan-isi">
+            <Teks doc={x.rich} />
+          </span>
+          <select
+            aria-label={`Pasangan untuk item ${i + 1}`}
+            value={j[x.id] ?? ''}
+            onChange={(e) => {
+              const baru = { ...j }
+              if (e.target.value) baru[x.id] = e.target.value
+              else delete baru[x.id]
+              onUbah(baru)
+            }}
+          >
+            <option value="">Pilih</option>
+            {soal.kanan.map((y, n) => (
+              <option key={y.id} value={y.id}>
+                {huruf(n)}
+              </option>
+            ))}
+          </select>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function JawabanUrut({ soal, nilai, onUbah }) {
+  const awal = soal.options.map((o) => o.id)
+  const urut = Array.isArray(nilai) && nilai.length === awal.length ? nilai : awal
+  const belum = !Array.isArray(nilai)
+  const oleh = Object.fromEntries(soal.options.map((o) => [o.id, o]))
+  const geser = (i, arah) => {
+    const t = i + arah
+    if (t < 0 || t >= urut.length) return
+    const baru = urut.slice()
+    ;[baru[i], baru[t]] = [baru[t], baru[i]]
+    onUbah(baru)
+  }
+  return (
+    <div className="urut">
+      <p className="petunjuk">Susun item dengan tombol panah sampai urutannya benar.</p>
+      <ol className="urut-daftar">
+        {urut.map((id, i) => (
+          <li key={id} className="urut-item">
+            <span className="pilihan-huruf">{i + 1}</span>
+            <span className="pilihan-isi">
+              <Teks doc={oleh[id]?.rich} />
+            </span>
+            <span className="baris rapat">
+              <button
+                type="button"
+                className="btn kecil"
+                aria-label={`Naikkan item ${i + 1}`}
+                disabled={i === 0}
+                onClick={() => geser(i, -1)}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="btn kecil"
+                aria-label={`Turunkan item ${i + 1}`}
+                disabled={i === urut.length - 1}
+                onClick={() => geser(i, 1)}
+              >
+                ↓
+              </button>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {belum && (
+        <div>
+          <p className="petunjuk">Urutan ini belum tersimpan sebagai jawabanmu.</p>
+          <button type="button" className="btn kecil" onClick={() => onUbah(urut)}>
+            Pakai urutan ini
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function JawabanRumpang({ soal, nilai, onUbah }) {
+  const j = nilai && typeof nilai === 'object' && !Array.isArray(nilai) ? nilai : {}
+  return (
+    <div className="kolom">
+      {(soal.rumpang ?? []).map((n) => (
+        <div className="kolom" key={n}>
+          <label htmlFor={`rum-${soal.id}-${n}`}>Isian ({n})</label>
+          <input
+            id={`rum-${soal.id}-${n}`}
+            value={j[n] ?? ''}
+            maxLength={200}
+            autoComplete="off"
+            onChange={(e) => onUbah({ ...j, [n]: e.target.value })}
+          />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function JawabanTeks({ soal, nilai, onUbah }) {
+  const uraian = soal.type === 'uraian'
+  const maks = uraian ? 5000 : 2000
+  const t = typeof nilai === 'string' ? nilai : ''
+  return (
+    <div className="kolom">
+      <label htmlFor={`teks-${soal.id}`}>{uraian ? 'Jawabanmu' : 'Tulis jawabanmu (boleh dikosongkan)'}</label>
+      <textarea
+        id={`teks-${soal.id}`}
+        rows={uraian ? 9 : 4}
+        maxLength={maks}
+        value={t}
+        onChange={(e) => onUbah(e.target.value)}
+      />
+      <span className="petunjuk">
+        {t.length} dari {maks} karakter
+      </span>
+    </div>
+  )
+}
+
+function JawabanSkala({ soal, nilai, onUbah }) {
+  const { label_rendah: rendah, label_tinggi: tinggi } = soal.skala ?? {}
+  return (
+    <fieldset className="pilihan-siswa">
+      <legend className="sr-only">Pilih angka dari 1 sampai 5</legend>
+      <div className="skala">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <label key={n} className={`skala-angka ${nilai === n ? 'dipilih' : ''}`}>
+            <input type="radio" name={`skala-${soal.id}`} checked={nilai === n} onChange={() => onUbah(n)} />
+            <span>{n}</span>
+          </label>
+        ))}
+      </div>
+      {(rendah || tinggi) && (
+        <div className="skala-label">
+          <span>1 = {rendah}</span>
+          <span>5 = {tinggi}</span>
+        </div>
+      )}
     </fieldset>
   )
 }

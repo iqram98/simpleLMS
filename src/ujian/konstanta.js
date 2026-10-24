@@ -21,7 +21,15 @@ export const TIPE_SOAL = [
     label: 'Isian singkat',
     petunjuk: 'Jawaban berupa kata atau angka.',
   },
+  { nilai: 'menjodohkan', label: 'Menjodohkan', petunjuk: 'Memasangkan item kiri dengan item kanan.' },
+  { nilai: 'mengurutkan', label: 'Mengurutkan', petunjuk: 'Menyusun item dalam urutan yang benar.' },
+  { nilai: 'rumpang', label: 'Rumpang', petunjuk: 'Mengisi bagian kosong pada kalimat.' },
+  { nilai: 'uraian', label: 'Uraian (dinilai guru)', petunjuk: 'Jawaban panjang yang dinilai guru.' },
+  { nilai: 'survei_pilihan', label: 'Survei: pilihan', petunjuk: 'Satu pilihan tanpa kunci dan tanpa nilai.' },
+  { nilai: 'survei_skala', label: 'Survei: skala 1 sampai 5', petunjuk: 'Skala tanpa kunci dan tanpa nilai.' },
+  { nilai: 'survei_teks', label: 'Survei: teks bebas', petunjuk: 'Jawaban bebas tanpa nilai.' },
 ]
+export const adalahSurvei = (tipe) => String(tipe ?? '').startsWith('survei_')
 export const NAMA_TIPE = Object.fromEntries(TIPE_SOAL.map((t) => [t.nilai, t.label]))
 
 export const ATURAN_NILAI = [

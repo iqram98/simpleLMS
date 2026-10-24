@@ -35,7 +35,7 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
       aktif
         ? supabase
             .from('percobaan')
-            .select('id,nomor,status,nilai,skor,skor_maks,mulai_pada,batas_pada,selesai_pada')
+            .select('id,nomor,status,nilai,skor,skor_maks,perlu_dinilai,mulai_pada,batas_pada,selesai_pada')
             .eq('lesson_id', pelajaranId)
             .eq('user_id', uid)
             .order('nomor')
@@ -59,7 +59,7 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
         riwayat = ambil(
           await supabase
             .from('percobaan')
-            .select('id,nomor,status,nilai,skor,skor_maks,mulai_pada,batas_pada,selesai_pada')
+            .select('id,nomor,status,nilai,skor,skor_maks,perlu_dinilai,mulai_pada,batas_pada,selesai_pada')
             .eq('lesson_id', pelajaranId)
             .eq('user_id', uid)
             .order('nomor'),
@@ -174,6 +174,9 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
               Nilai akhirmu: <strong>{angka(nilaiAkhir)}</strong> {lulus ? '✓ mencapai KKM' : '(belum mencapai KKM)'}
             </p>
           )}
+          {nilaiAkhir == null && riwayat.some((p) => p.perlu_dinilai) && (
+            <p className="nilai-akhir">Nilai akhirmu: menunggu penilaian guru.</p>
+          )}
           <p>
             Percobaan terpakai: {riwayat.length} dari {st.maks_percobaan}
           </p>
@@ -182,7 +185,8 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
               {selesai.map((p) => (
                 <li key={p.id} className="baris">
                   <span>
-                    Percobaan {p.nomor}: <strong>{angka(p.nilai)}</strong>
+                    Percobaan {p.nomor}:{' '}
+                    <strong>{p.perlu_dinilai ? 'menunggu penilaian' : p.nilai == null ? 'terkirim' : angka(p.nilai)}</strong>
                     <span className="petunjuk"> ({waktu(p.selesai_pada)})</span>
                   </span>
                   <button type="button" className="btn kecil" onClick={() => setLayar({ nama: 'hasil', id: p.id })}>
