@@ -5,6 +5,7 @@ import { Memuat } from './components/ui.jsx'
 import Masuk from './pages/Masuk.jsx'
 import Profil from './pages/Profil.jsx'
 import Beranda from './pages/Beranda.jsx'
+import Forum from './forum/Forum.jsx'
 import KelasSiswa from './pages/KelasSiswa.jsx'
 import KursusEditor from './pages/KursusEditor.jsx'
 import KelolaKelas from './pages/KelolaKelas.jsx'
@@ -64,6 +65,7 @@ export default function App() {
         <Route path="/profil" element={<Profil />} />
         <Route element={<Layout />}>
           <Route path="/" element={<Beranda />} />
+          <Route path="/kelas/:kelasId/forum/:topikId?" element={<Forum />} />
           <Route path="/kelas/:kelasId/:pelajaranId?" element={<KelasSiswa />} />
           <Route element={<HanyaGuru />}>
             <Route path="/kursus/:kursusId/:pelajaranId?" element={<KursusEditor />} />

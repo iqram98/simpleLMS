@@ -2,9 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { DaftarBlok } from '../components/Isi.jsx'
+import Ikon, { TautanIkon, TombolIkon } from '../components/Ikon.jsx'
+import { Fab, Rail, TombolLipat, useSampingLipat } from '../components/Samping.jsx'
 import { KotakGalat, Memuat } from '../components/ui.jsx'
 import { useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
+import PengumumanSiswa from '../pengumuman/PengumumanSiswa.jsx'
+import PanelTugas from '../tugas/PanelTugas.jsx'
 import PanelUjian from '../ujian/PanelUjian.jsx'
 
 // Tampilan belajar untuk siswa: sidebar modul, isi pelajaran, tombol sebelumnya
@@ -15,9 +19,11 @@ export default function KelasSiswa() {
   const { uid } = useAuth()
   const navigate = useNavigate()
   const [sampingBuka, setSampingBuka] = useState(false)
+  const [lipat, setLipat] = useSampingLipat('lms.samping.siswa')
   const [selesai, setSelesai] = useState(() => new Set())
   const { sibuk, galat, jalankan } = useAksi()
   const [mengerjakan, setMengerjakan] = useState(false)
+  const [terbuka, setTerbuka] = useState(() => new Set())
 
   const kelas = useMuat(async () => {
     const k = ambil(await supabase.from('classes').select('id,name,course_id,is_archived').eq('id', kelasId).maybeSingle())
@@ -78,6 +84,11 @@ export default function KelasSiswa() {
     setSampingBuka(false)
   }, [sekarang?.id])
 
+  const modulSekarangId = modulSekarang?.id ?? null
+  useEffect(() => {
+    if (modulSekarangId) setTerbuka((t) => new Set(t).add(modulSekarangId))
+  }, [modulSekarangId])
+
   if (kelas.memuat && !kelas.data) return <Memuat />
   if (kelas.error) {
     return (
@@ -105,8 +116,10 @@ export default function KelasSiswa() {
   const total = urut.length
   const selesaiCount = urut.filter((l) => selesai.has(l.id)).length
   const persen = total ? Math.round((100 * selesaiCount) / total) : 0
+  const semuaTerbuka = modul.length > 0 && modul.every((m) => terbuka.has(m.id))
   const sudahSelesai = sekarang ? selesai.has(sekarang.id) : false
   const ujian = sekarang?.kind === 'ujian'
+  const tugas = sekarang?.kind === 'tugas'
 
   const tandai = (nilai) =>
     jalankan(async () => {
@@ -128,7 +141,7 @@ export default function KelasSiswa() {
   // Bila gagal menyimpan, siswa tetap pindah halaman dan bisa menandai manual.
   const lanjut = async () => {
     if (!berikutnya) return
-    if (aktif && !sudahSelesai && !ujian) {
+    if (aktif && !sudahSelesai && !ujian && !tugas) {
       try {
         ambil(
           await supabase.rpc('tandai_selesai', {
@@ -163,6 +176,14 @@ export default function KelasSiswa() {
         {!aktif && status !== 'menunggu' && (
           <p className="info">Mode pratinjau: begini tampilan kelas ini untuk siswa. Progres tidak dicatat.</p>
         )}
+        {(aktif || !status) && (
+          <div>
+            <Link className="btn" to={`/kelas/${kelasId}/forum`}>
+              <Ikon nama="forum" /> Forum kelas
+            </Link>
+          </div>
+        )}
+        {(aktif || !status) && <PengumumanSiswa kursusId={k.course_id} />}
         {aktif && total > 0 && (
           <div className="panel">
             <div className="persen">
@@ -237,12 +258,21 @@ export default function KelasSiswa() {
   }
 
   return (
-    <div className="kursus">
-      <aside className={`samping jalur ${sampingBuka ? 'terbuka' : ''}`} aria-label="Daftar pelajaran">
+    <div className={`kursus ${lipat ? 'lipat' : ''}`}>
+      <aside className={`samping jalur ${sampingBuka ? 'terbuka' : ''}`} id="samping-siswa" aria-label="Daftar pelajaran">
         <div className="samping-kepala">
-          <Link className="btn kecil" to={`/kelas/${kelasId}`}>
-            ← Semua modul
-          </Link>
+          <div className="samping-alat">
+            <TautanIkon komponen={Link} to="/" ikon="rumah" label="Beranda" />
+            <TautanIkon komponen={Link} to={`/kelas/${kelasId}`} ikon="buku" label="Semua modul" />
+            {(aktif || !status) && <TautanIkon komponen={Link} to={`/kelas/${kelasId}/forum`} ikon="forum" label="Forum kelas" />}
+            <span className="rapat-kanan" />
+            <TombolIkon
+              ikon={semuaTerbuka ? 'tutupSemua' : 'bukaSemua'}
+              label={semuaTerbuka ? 'Tutup semua modul' : 'Buka semua modul'}
+              onClick={() => setTerbuka(semuaTerbuka ? new Set() : new Set(modul.map((m) => m.id)))}
+            />
+            <TombolLipat lipat={lipat} onUbah={setLipat} id="samping-siswa" nama="daftar pelajaran" />
+          </div>
           <h2>{kursus?.title ?? k.name}</h2>
           <p className="petunjuk">{k.name}</p>
           {aktif && (
@@ -257,51 +287,93 @@ export default function KelasSiswa() {
             </>
           )}
         </div>
-        {[modulSekarang].filter(Boolean).map((m) => (
-          <div className="modul" key={m.id}>
-            <p className="modul-judul">{m.title}</p>
-            <ul>
-              {m.lessons.map((l) => (
-                <li key={l.id}>
-                  <Link
-                    to={`/kelas/${kelasId}/${l.id}`}
-                    className={`pelajaran ${sekarang && l.id === sekarang.id ? 'sekarang' : ''}`}
-                    aria-current={sekarang && l.id === sekarang.id ? 'page' : undefined}
-                  >
-                    {aktif && (
-                      <span
-                        className={`tanda ${selesai.has(l.id) ? 'selesai' : ''}`}
-                        role="img"
-                        aria-label={selesai.has(l.id) ? 'Selesai' : 'Belum selesai'}
+        {modul.map((m) => {
+          const buka = terbuka.has(m.id)
+          const hitung = m.lessons.filter((l) => selesai.has(l.id)).length
+          const lengkap = aktif && m.lessons.length > 0 && hitung === m.lessons.length
+          return (
+            <div className="modul" key={m.id}>
+              <button
+                type="button"
+                className={`modul-kepala ${buka ? 'buka' : ''}`}
+                aria-expanded={buka}
+                onClick={() =>
+                  setTerbuka((t) => {
+                    const baru = new Set(t)
+                    if (baru.has(m.id)) baru.delete(m.id)
+                    else baru.add(m.id)
+                    return baru
+                  })
+                }
+              >
+                <span className="modul-nama">{m.title}</span>
+                {lengkap ? (
+                  <span className="modul-selesai" role="img" aria-label="Modul selesai">
+                    <Ikon nama="cek" />
+                  </span>
+                ) : (
+                  aktif && (
+                    <span className="petunjuk">
+                      {hitung}/{m.lessons.length}
+                    </span>
+                  )
+                )}
+                <span aria-hidden="true">{buka ? '▾' : '▸'}</span>
+              </button>
+              {buka && (
+                <ul>
+                  {m.lessons.map((l) => (
+                    <li key={l.id}>
+                      <Link
+                        to={`/kelas/${kelasId}/${l.id}`}
+                        className={`pelajaran ${sekarang && l.id === sekarang.id ? 'sekarang' : ''}`}
+                        aria-current={sekarang && l.id === sekarang.id ? 'page' : undefined}
                       >
-                        {selesai.has(l.id) ? '✓' : ''}
-                      </span>
-                    )}
-                    <span>{l.title}</span>
-                    {l.kind === 'ujian' && <span className="lencana">Ujian</span>}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+                        {aktif && (
+                          <span
+                            className={`tanda ${selesai.has(l.id) ? 'selesai' : ''}`}
+                            role="img"
+                            aria-label={selesai.has(l.id) ? 'Selesai' : 'Belum selesai'}
+                          >
+                            {selesai.has(l.id) ? '✓' : ''}
+                          </span>
+                        )}
+                        <span>{l.title}</span>
+                        {l.kind === 'ujian' && <span className="lencana">Ujian</span>}
+                        {l.kind === 'tugas' && <span className="lencana">Tugas</span>}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )
+        })}
       </aside>
+      <Rail
+        lipat={lipat}
+        onUbah={setLipat}
+        id="samping-siswa"
+        nama="daftar pelajaran"
+        item={[
+          { kunci: 'rumah', label: 'Beranda', ikon: 'rumah', to: '/' },
+          { kunci: 'modul', label: 'Semua modul', ikon: 'buku', to: `/kelas/${kelasId}` },
+          ...(aktif || !status ? [{ kunci: 'forum', label: 'Forum kelas', ikon: 'forum', to: `/kelas/${kelasId}/forum` }] : []),
+          ...modul.map((m, i) => ({
+            kunci: m.id,
+            label: `Modul: ${m.title}`,
+            teks: String(i + 1),
+            aktif: modulSekarang?.id === m.id,
+            selesai: aktif && m.lessons.length > 0 && m.lessons.every((l) => selesai.has(l.id)),
+            onKlik: () => {
+              setTerbuka((t) => new Set(t).add(m.id))
+              setLipat(false)
+            },
+          })),
+        ]}
+      />
 
       <div className="utama-isi">
-        <div className="baris">
-          <Link className="btn kecil" to="/">
-            ← Beranda
-          </Link>
-          <button
-            type="button"
-            className="btn kecil tombol-samping"
-            aria-expanded={sampingBuka}
-            onClick={() => setSampingBuka((b) => !b)}
-          >
-            Daftar modul ini
-          </button>
-        </div>
-
         {status === 'menunggu' && (
           <p className="info">Permintaanmu masih menunggu persetujuan guru. Isi kelas akan muncul setelah disetujui.</p>
         )}
@@ -335,7 +407,16 @@ export default function KelasSiswa() {
               />
             )}
 
+            {tugas && <PanelTugas key={sekarang.id} pelajaranId={sekarang.id} uid={uid} aktif={aktif} onKirim={muatSelesai} />}
+
             <KotakGalat galat={galat} />
+            {!mengerjakan && !ujian && (aktif || !status) && (
+              <p className="tanya-forum">
+                <Link className="btn kecil" to={`/kelas/${kelasId}/forum?pelajaran=${sekarang.id}`}>
+                  <Ikon nama="forum" /> Tanya tentang pelajaran ini
+                </Link>
+              </p>
+            )}
             {!mengerjakan && (
               <nav className="pager" aria-label="Navigasi pelajaran">
                 <button
@@ -346,7 +427,7 @@ export default function KelasSiswa() {
                 >
                   ← Sebelumnya
                 </button>
-                {aktif && !ujian && (
+                {aktif && !ujian && !tugas && (
                   <button
                     type="button"
                     className={`btn ${sudahSelesai ? '' : 'utama'}`}
@@ -365,6 +446,7 @@ export default function KelasSiswa() {
           </>
         }
       </div>
+      {!mengerjakan && <Fab atasPager buka={sampingBuka} onUbah={setSampingBuka} id="samping-siswa" label="Daftar pelajaran" />}
     </div>
   )
 }

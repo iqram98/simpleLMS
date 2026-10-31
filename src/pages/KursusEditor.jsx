@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import BlokForm from '../components/BlokForm.jsx'
 import DaftarSoal from '../ujian/DaftarSoal.jsx'
+import PanelUjian from '../ujian/PanelUjian.jsx'
 import PengaturanUjian from '../ujian/PengaturanUjian.jsx'
 import HasilUjianGuru from '../ujian/HasilUjianGuru.jsx'
+import PanelTugas from '../tugas/PanelTugas.jsx'
+import PengaturanTugas from '../tugas/PengaturanTugas.jsx'
+import PengumpulanTugas from '../tugas/PengumpulanTugas.jsx'
 import { BlokView, DaftarBlok } from '../components/Isi.jsx'
-import { Kosong, KotakGalat, Memuat, TombolKonfirmasi, TombolSalin, UbahDiTempat } from '../components/ui.jsx'
+import Ikon, { TautanIkon, TombolIkon } from '../components/Ikon.jsx'
+import { Fab, Rail, TombolLipat, useSampingLipat } from '../components/Samping.jsx'
+import { Kosong, KotakGalat, MenuTitik, Memuat, TombolKonfirmasi, TombolSalin, UbahDiTempat } from '../components/ui.jsx'
 import { posisiBerikut, susunUlang, useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
 
@@ -16,8 +22,11 @@ export default function KursusEditor() {
   const { uid, adalahAdmin } = useAuth()
   const navigate = useNavigate()
   const { sibuk, galat, setGalat, jalankan } = useAksi()
-  const [terbuka, setTerbuka] = useState(null)
+  const [terbuka, setTerbuka] = useState(() => new Set())
+  const [tambahDi, setTambahDi] = useState(null) // 'modul' | { modulId, jenis }
   const [sampingBuka, setSampingBuka] = useState(false)
+  const [lipat, setLipat] = useSampingLipat('lms.samping.guru')
+  const [ubahNama, setUbahNama] = useState(null)
 
   const { data, error, memuat, muatUlang } = useMuat(async () => {
     const [kursus, modul, kelas] = await Promise.all([
@@ -42,7 +51,7 @@ export default function KursusEditor() {
 
   const modulSekarangId = sekarang?.modul.id ?? null
   useEffect(() => {
-    if (modulSekarangId) setTerbuka(modulSekarangId)
+    if (modulSekarangId) setTerbuka((t) => new Set(t).add(modulSekarangId))
   }, [modulSekarangId])
 
   if (memuat && !data) return <Memuat />
@@ -68,6 +77,7 @@ export default function KursusEditor() {
   }
 
   const { kursus, modul, kelas } = data
+  const semuaTerbuka = modul.length > 0 && modul.every((m) => terbuka.has(m.id))
 
   // Menjalankan perubahan lalu memuat ulang daftar.
   const ubah = (fungsi) =>
@@ -138,32 +148,108 @@ export default function KursusEditor() {
     ubah(async () => ambil(await supabase.from('classes').insert({ course_id: kursusId, name: nama }).select('id')))
 
   return (
-    <div className="kursus">
+    <div className={`kursus ${lipat ? 'lipat' : ''}`}>
       <aside className={`samping ${sampingBuka ? 'terbuka' : ''}`} id="samping-kursus" aria-label="Susunan kursus">
         <div className="samping-kepala">
-          <Link to="/" className="btn kecil">
-            ← Beranda
-          </Link>
+          <div className="samping-alat">
+            <TautanIkon komponen={Link} to="/" ikon="rumah" label="Beranda" />
+            <span className="rapat-kanan" />
+            <TombolIkon
+              ikon={semuaTerbuka ? 'tutupSemua' : 'bukaSemua'}
+              label={semuaTerbuka ? 'Tutup semua modul' : 'Buka semua modul'}
+              onClick={() => setTerbuka(semuaTerbuka ? new Set() : new Set(modul.map((m) => m.id)))}
+            />
+            <TombolIkon ikon="tambah" label="Tambah modul" disabled={sibuk} onClick={() => setTambahDi('modul')} />
+            <TombolLipat lipat={lipat} onUbah={setLipat} id="samping-kursus" nama="susunan kursus" />
+          </div>
           <h2>{kursus.title}</h2>
           <Link to={`/kursus/${kursusId}`} className={`pelajaran ${!sekarang ? 'sekarang' : ''}`}>
             Ringkasan kursus dan kelas
           </Link>
+          {tambahDi === 'modul' && (
+            <FormNama
+              awal=""
+              label="Judul modul"
+              onSimpan={async (v) => {
+                await tambahModul(v)
+                setTambahDi(null)
+              }}
+              onBatal={() => setTambahDi(null)}
+            />
+          )}
         </div>
 
         {modul.map((m, mi) => {
-          const buka = terbuka === m.id
+          const buka = terbuka.has(m.id)
+          const jenisTambah = tambahDi?.modulId === m.id ? tambahDi.jenis : null
+          const pilihJenis = (jenis) => {
+            setTerbuka((t) => new Set(t).add(m.id))
+            setTambahDi({ modulId: m.id, jenis })
+          }
           return (
             <div className="modul" key={m.id}>
-              <button
-                type="button"
-                className={`modul-kepala ${buka ? 'buka' : ''}`}
-                aria-expanded={buka}
-                onClick={() => setTerbuka(buka ? null : m.id)}
-              >
-                <span className="modul-nama">{m.title}</span>
-                <span className="petunjuk">{m.lessons.length} item</span>
-                <span aria-hidden="true">{buka ? '▾' : '▸'}</span>
-              </button>
+              <BarisModul judul={m.title}>
+                <button
+                  type="button"
+                  className={`modul-kepala ${buka ? 'buka' : ''}`}
+                  aria-expanded={buka}
+                  onClick={() =>
+                    setTerbuka((t) => {
+                      const baru = new Set(t)
+                      if (baru.has(m.id)) baru.delete(m.id)
+                      else baru.add(m.id)
+                      return baru
+                    })
+                  }
+                >
+                  <span className="modul-nama">{m.title}</span>
+                  <span className="petunjuk">{m.lessons.length}</span>
+                  <span aria-hidden="true">{buka ? '▾' : '▸'}</span>
+                </button>
+                <span className="modul-alat">
+                  <MenuTitik
+                    ikon={<Ikon nama="tambah" />}
+                    label={`Tambah ke modul ${m.title}`}
+                    disabled={sibuk}
+                    item={[
+                      { label: 'Pelajaran', onPilih: () => pilihJenis('pelajaran') },
+                      { label: 'Ujian', onPilih: () => pilihJenis('ujian') },
+                      { label: 'Tugas', onPilih: () => pilihJenis('tugas') },
+                    ]}
+                  />
+                  <MenuTitik
+                    ikon="⚙"
+                    label={`Aksi untuk modul ${m.title}`}
+                    disabled={sibuk}
+                    item={[
+                      { label: 'Ubah nama modul', onPilih: () => setUbahNama(m.id) },
+                      { label: 'Naikkan modul', nonaktif: mi === 0, onPilih: () => geserDaftar('modules', modul, mi, -1) },
+                      {
+                        label: 'Turunkan modul',
+                        nonaktif: mi === modul.length - 1,
+                        onPilih: () => geserDaftar('modules', modul, mi, 1),
+                      },
+                      {
+                        label: 'Hapus modul',
+                        bahaya: true,
+                        konfirmasi: 'Modul dan semua pelajarannya ikut terhapus. Lanjut?',
+                        onPilih: () => hapusModul(m.id),
+                      },
+                    ]}
+                  />
+                </span>
+              </BarisModul>
+              {ubahNama === m.id && (
+                <FormNama
+                  awal={m.title}
+                  label="Nama modul"
+                  onSimpan={async (v) => {
+                    await ubahModul(m.id, v)
+                    setUbahNama(null)
+                  }}
+                  onBatal={() => setUbahNama(null)}
+                />
+              )}
               {buka && (
                 <>
                   <ul>
@@ -175,65 +261,54 @@ export default function KursusEditor() {
                         >
                           <span>{l.title}</span>
                           {l.kind === 'ujian' && <span className="lencana">Ujian</span>}
+                          {l.kind === 'tugas' && <span className="lencana">Tugas</span>}
                           {!l.is_published && <span className="lencana">Draft</span>}
                         </Link>
                       </li>
                     ))}
-                    {m.lessons.length === 0 && <li className="petunjuk">Modul ini masih kosong.</li>}
+                    {m.lessons.length === 0 && !jenisTambah && <li className="petunjuk">Modul ini masih kosong.</li>}
                   </ul>
-                  <TambahPelajaran disabled={sibuk} onSimpan={(judul, kind) => tambahPelajaran(m, judul, kind)} />
-                  <div className="baris rapat alat-modul">
-                    <button
-                      type="button"
-                      className="btn kecil"
-                      aria-label={`Naikkan modul ${m.title}`}
-                      disabled={sibuk || mi === 0}
-                      onClick={() => geserDaftar('modules', modul, mi, -1)}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="btn kecil"
-                      aria-label={`Turunkan modul ${m.title}`}
-                      disabled={sibuk || mi === modul.length - 1}
-                      onClick={() => geserDaftar('modules', modul, mi, 1)}
-                    >
-                      ↓
-                    </button>
-                    <UbahDiTempat
-                      nilai={m.title}
-                      label={`judul modul ${m.title}`}
-                      onSimpan={(v) => ubahModul(m.id, v)}
-                      tag="span"
+                  {jenisTambah && (
+                    <FormNama
+                      awal=""
+                      label={
+                        jenisTambah === 'ujian' ? 'Judul ujian' : jenisTambah === 'tugas' ? 'Judul tugas' : 'Judul pelajaran'
+                      }
+                      onSimpan={async (v) => {
+                        await tambahPelajaran(m, v, jenisTambah)
+                        setTambahDi(null)
+                      }}
+                      onBatal={() => setTambahDi(null)}
                     />
-                  </div>
-                  <TombolKonfirmasi
-                    label="Hapus modul"
-                    tanya="Modul dan semua pelajarannya ikut terhapus. Lanjut?"
-                    disabled={sibuk}
-                    onYakin={() => hapusModul(m.id)}
-                  />
+                  )}
                 </>
               )}
             </div>
           )
         })}
-        <TambahTeks label="+ Modul" nama="Judul modul" disabled={sibuk} onSimpan={tambahModul} />
       </aside>
+      <Rail
+        lipat={lipat}
+        onUbah={setLipat}
+        id="samping-kursus"
+        nama="susunan kursus"
+        item={[
+          { kunci: 'rumah', label: 'Beranda', ikon: 'rumah', to: '/' },
+          { kunci: 'ringkasan', label: 'Ringkasan kursus dan kelas', ikon: 'buku', to: `/kursus/${kursusId}`, aktif: !sekarang },
+          ...modul.map((m, i) => ({
+            kunci: m.id,
+            label: `Modul: ${m.title}`,
+            teks: String(i + 1),
+            aktif: sekarang?.modul.id === m.id,
+            onKlik: () => {
+              setTerbuka((t) => new Set(t).add(m.id))
+              setLipat(false)
+            },
+          })),
+        ]}
+      />
 
       <div className="utama-isi">
-        <div className="baris">
-          <button
-            type="button"
-            className="btn kecil tombol-samping"
-            aria-expanded={sampingBuka}
-            aria-controls="samping-kursus"
-            onClick={() => setSampingBuka((b) => !b)}
-          >
-            {sampingBuka ? 'Tutup susunan kursus' : 'Susunan kursus'}
-          </button>
-        </div>
         <KotakGalat galat={galat} onTutup={() => setGalat('')} />
         {sekarang ? (
           <EditorPelajaran
@@ -256,7 +331,66 @@ export default function KursusEditor() {
           />
         )}
       </div>
+      <Fab buka={sampingBuka} onUbah={setSampingBuka} id="samping-kursus" label="Susunan" />
     </div>
+  )
+}
+
+/* ---------- formulir nama ---------- */
+
+// Baris kepala modul. Tombol + dan pengaturan berdampingan bila judul pendek, dan ditumpuk atas-bawah bila judul panjang
+// (tinggi baris saat berdampingan cukup untuk dua tombol). Keputusan hanya diambil ulang saat lebar atau judul berubah.
+const AMBANG_TUMPUK = 90
+function BarisModul({ judul, children }) {
+  const ref = useRef(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const ukur = () => {
+      el.dataset.tumpuk = '0'
+      el.dataset.tumpuk = el.offsetHeight >= AMBANG_TUMPUK ? '1' : '0'
+    }
+    ukur()
+    let lebar = el.clientWidth
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== lebar) {
+        lebar = el.clientWidth
+        ukur()
+      }
+    })
+    ro.observe(el)
+    document.fonts?.ready.then(ukur)
+    return () => ro.disconnect()
+  }, [judul])
+  return (
+    <div className="modul-baris" ref={ref} data-tumpuk="0">
+      {children}
+    </div>
+  )
+}
+
+function FormNama({ awal, label, onSimpan, onBatal }) {
+  const [isi, setIsi] = useState(awal)
+  const idIsian = useId()
+  return (
+    <form
+      className="form-baris"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (isi.trim()) onSimpan(isi.trim())
+      }}
+    >
+      <div className="kolom">
+        <label htmlFor={idIsian}>{label}</label>
+        <input id={idIsian} value={isi} onChange={(e) => setIsi(e.target.value)} autoFocus />
+      </div>
+      <button type="submit" className="btn kecil utama">
+        Simpan
+      </button>
+      <button type="button" className="btn kecil" onClick={onBatal}>
+        Batal
+      </button>
+    </form>
   )
 }
 
@@ -300,67 +434,6 @@ function TambahTeks({ label, nama, onSimpan, disabled }) {
 
 /* ---------- satu tombol tambah: pelajaran atau ujian ---------- */
 
-function TambahPelajaran({ onSimpan, disabled }) {
-  const [menu, setMenu] = useState(false)
-  const [jenis, setJenis] = useState(null) // 'pelajaran' | 'ujian'
-  const [isi, setIsi] = useState('')
-
-  if (jenis) {
-    const nama = jenis === 'ujian' ? 'Judul ujian' : 'Judul pelajaran'
-    const kirim = async (e) => {
-      e.preventDefault()
-      const bersih = isi.trim()
-      if (!bersih) return
-      await onSimpan(bersih, jenis)
-      setIsi('')
-      setJenis(null)
-    }
-    return (
-      <form className="form-baris" onSubmit={kirim}>
-        <div className="kolom">
-          <label htmlFor="tambah-judul">{nama}</label>
-          <input id="tambah-judul" value={isi} onChange={(e) => setIsi(e.target.value)} autoFocus />
-        </div>
-        <button type="submit" className="btn kecil utama" disabled={disabled}>
-          Simpan
-        </button>
-        <button type="button" className="btn kecil" onClick={() => setJenis(null)}>
-          Batal
-        </button>
-      </form>
-    )
-  }
-  const pilih = (j) => {
-    setMenu(false)
-    setJenis(j)
-  }
-  return (
-    <div className="menu-tambah">
-      <button
-        type="button"
-        className="btn kecil"
-        aria-haspopup="menu"
-        aria-expanded={menu}
-        disabled={disabled}
-        onClick={() => setMenu((m) => !m)}
-        onKeyDown={(e) => e.key === 'Escape' && setMenu(false)}
-      >
-        + Tambah ▾
-      </button>
-      {menu && (
-        <div className="menu-tambah-isi" role="menu" onKeyDown={(e) => e.key === 'Escape' && setMenu(false)}>
-          <button type="button" role="menuitem" className="btn kecil" onClick={() => pilih('pelajaran')}>
-            Pelajaran
-          </button>
-          <button type="button" role="menuitem" className="btn kecil" onClick={() => pilih('ujian')}>
-            Ujian
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ---------- ringkasan kursus dan kelas ---------- */
 
 function Ringkasan({ kursus, kelas, sibuk, onUbahKursus, onHapusKursus, onBuatKelas }) {
@@ -402,7 +475,8 @@ function Ringkasan({ kursus, kelas, sibuk, onUbahKursus, onHapusKursus, onBuatKe
                       {k.name} {k.is_archived && <span className="lencana">Arsip</span>}
                     </td>
                     <td>
-                      <span className="kode">{k.join_code}</span> <TombolSalin teks={k.join_code} />
+                      <span className="kode">{k.join_code}</span>{' '}
+                      <TombolSalin teks={k.join_code} ikon label={`Salin kode kelas ${k.name}`} />
                     </td>
                     <td>
                       <Link className="btn kecil" to={`/kelola/${k.id}`}>
@@ -421,7 +495,7 @@ function Ringkasan({ kursus, kelas, sibuk, onUbahKursus, onHapusKursus, onBuatKe
         <TambahTeks label="+ Kelas" nama="Nama kelas (misalnya 8A)" disabled={sibuk} onSimpan={onBuatKelas} />
       </section>
 
-      <section className="panel" aria-labelledby="judul-hapus-kursus">
+      <section className="panel zona-bahaya" aria-labelledby="judul-hapus-kursus">
         <h3 id="judul-hapus-kursus">Hapus kursus</h3>
         <p className="petunjuk">
           Kursus hanya bisa dihapus setelah semua kelasnya dihapus. Semua modul, pelajaran, dan blok ikut terhapus.
@@ -446,8 +520,12 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
   const [pratinjau, setPratinjau] = useState(false)
   const [formBaru, setFormBaru] = useState(false)
   const [diubah, setDiubah] = useState(null)
-  const [tab, setTab] = useState('petunjuk')
+  const [params] = useSearchParams()
+  const tabAwal = params.get('tab') === 'hasil' ? 'hasil' : 'petunjuk'
+  const [tab, setTab] = useState(tabAwal)
   const ujian = pelajaran.kind === 'ujian'
+  const tugas = pelajaran.kind === 'tugas'
+  const bertab = ujian || tugas
 
   const blok = useMuat(
     async () => ambil(await supabase.from('blocks').select('*').eq('lesson_id', pelajaran.id).order('position')),
@@ -457,7 +535,8 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
 
   useEffect(() => {
     window.scrollTo(0, 0)
-    setTab('petunjuk')
+    setTab(tabAwal)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pelajaran.id])
 
   const ubahPelajaran = (patch) =>
@@ -518,36 +597,45 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
         <UbahDiTempat tag="h1" nilai={pelajaran.title} label="judul pelajaran" onSimpan={(v) => ubahPelajaran({ title: v })} />
         <div className="baris">
           {ujian && <span className="lencana">Ujian</span>}
-          <span className="lencana">{pelajaran.is_published ? 'Terbit' : 'Draft'}</span>
-          <button
-            type="button"
-            className="btn kecil"
-            disabled={sibuk}
-            onClick={() => ubahPelajaran({ is_published: !pelajaran.is_published })}
-          >
-            {pelajaran.is_published ? 'Jadikan draft' : 'Terbitkan untuk siswa'}
-          </button>
-          <button
-            type="button"
-            className="btn kecil"
-            aria-label="Naikkan pelajaran"
-            disabled={sibuk || indeksPelajaran <= 0}
-            onClick={() => geserPelajaran(indeksPelajaran, -1)}
-          >
-            ↑ Naikkan
-          </button>
-          <button
-            type="button"
-            className="btn kecil"
-            aria-label="Turunkan pelajaran"
-            disabled={sibuk || indeksPelajaran === modulItem.lessons.length - 1}
-            onClick={() => geserPelajaran(indeksPelajaran, 1)}
-          >
-            ↓ Turunkan
-          </button>
-          <button type="button" className="btn kecil" aria-pressed={pratinjau} onClick={() => setPratinjau((p) => !p)}>
-            {pratinjau ? 'Kembali ke mode edit' : 'Pratinjau tampilan siswa'}
-          </button>
+          {tugas && <span className="lencana">Tugas</span>}
+          <span className={`lencana ${pelajaran.is_published ? 'status-aktif' : ''}`}>
+            {pelajaran.is_published ? 'Terbit' : 'Draft'}
+          </span>
+          <span className="rapat-kanan baris rapat">
+            <TombolIkon
+              ikon={pratinjau ? 'pensil' : 'mata'}
+              label={pratinjau ? 'Kembali ke mode edit' : 'Pratinjau'}
+              kelas={pratinjau ? 'utama' : ''}
+              onClick={() => setPratinjau((p) => !p)}
+            />
+            <button
+              type="button"
+              className={`btn kecil ${pelajaran.is_published ? '' : 'utama'}`}
+              disabled={sibuk}
+              onClick={() => ubahPelajaran({ is_published: !pelajaran.is_published })}
+            >
+              {pelajaran.is_published ? 'Jadikan draft' : 'Terbitkan'}
+            </button>
+            <MenuTitik
+              ikon="⚙"
+              label={ujian ? 'Aksi lain untuk ujian' : 'Aksi lain untuk pelajaran'}
+              disabled={sibuk}
+              item={[
+                { label: 'Naikkan urutan', nonaktif: indeksPelajaran <= 0, onPilih: () => geserPelajaran(indeksPelajaran, -1) },
+                {
+                  label: 'Turunkan urutan',
+                  nonaktif: indeksPelajaran === modulItem.lessons.length - 1,
+                  onPilih: () => geserPelajaran(indeksPelajaran, 1),
+                },
+                {
+                  label: ujian ? 'Hapus ujian' : tugas ? 'Hapus tugas' : 'Hapus pelajaran',
+                  bahaya: true,
+                  konfirmasi: `Hapus ${ujian ? 'ujian' : tugas ? 'tugas' : 'pelajaran'} beserta isinya? Penanda selesai siswa ikut terhapus. Untuk menyembunyikan sementara, pakai Jadikan draft.`,
+                  onPilih: hapusPelajaran,
+                },
+              ]}
+            />
+          </span>
         </div>
       </div>
 
@@ -555,17 +643,28 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
       {blok.memuat && !blok.data && <Memuat />}
 
       {pratinjau ? (
-        <DaftarBlok blok={daftar} tampilkanCatatan={false} />
+        <>
+          <DaftarBlok blok={daftar} tampilkanCatatan={false} />
+          {ujian && <PanelUjian pelajaranId={pelajaran.id} kelasId={null} uid={null} aktif={false} />}
+          {tugas && <PanelTugas pelajaranId={pelajaran.id} uid={null} aktif={false} />}
+        </>
       ) : (
         <>
-          {ujian && (
-            <div className="tab-bar" role="tablist" aria-label="Bagian ujian">
-              {[
-                ['petunjuk', 'Petunjuk'],
-                ['soal', 'Soal'],
-                ['pengaturan', 'Pengaturan'],
-                ['hasil', 'Hasil'],
-              ].map(([k, l]) => (
+          {bertab && (
+            <div className="tab-bar" role="tablist" aria-label={ujian ? 'Bagian ujian' : 'Bagian tugas'}>
+              {(ujian
+                ? [
+                    ['petunjuk', 'Petunjuk'],
+                    ['soal', 'Soal'],
+                    ['pengaturan', 'Pengaturan'],
+                    ['hasil', 'Hasil'],
+                  ]
+                : [
+                    ['petunjuk', 'Instruksi'],
+                    ['pengaturan', 'Pengaturan'],
+                    ['hasil', 'Pengumpulan'],
+                  ]
+              ).map(([k, l]) => (
                 <button
                   key={k}
                   type="button"
@@ -581,8 +680,12 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
           )}
           {ujian && tab === 'soal' && <DaftarSoal pelajaranId={pelajaran.id} />}
           {ujian && tab === 'pengaturan' && <PengaturanUjian pelajaranId={pelajaran.id} />}
+          {tugas && tab === 'pengaturan' && <PengaturanTugas pelajaranId={pelajaran.id} />}
+          {tugas && tab === 'hasil' && (
+            <PengumpulanTugas pelajaranId={pelajaran.id} kursusId={kursusId} judul={pelajaran.title} />
+          )}
           {ujian && tab === 'hasil' && <HasilUjianGuru pelajaranId={pelajaran.id} kursusId={kursusId} judul={pelajaran.title} />}
-          {(!ujian || tab === 'petunjuk') && (
+          {(!bertab || tab === 'petunjuk') && (
             <>
               {blok.data && daftar.length === 0 && <Kosong>Pelajaran ini belum punya isi. Tambahkan blok di bawah.</Kosong>}
               {daftar.map((b, i) => (
@@ -651,22 +754,6 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
               )}
             </>
           )}
-
-          <section className="panel" aria-labelledby="judul-hapus-pelajaran">
-            <h3 id="judul-hapus-pelajaran">{ujian ? 'Hapus ujian' : 'Hapus pelajaran'}</h3>
-            <p className="petunjuk">
-              Blok dan penanda selesai siswa untuk pelajaran ini ikut terhapus. Untuk menyembunyikan sementara, pakai Jadikan
-              draft.
-            </p>
-            <div>
-              <TombolKonfirmasi
-                label={ujian ? 'Hapus ujian ini' : 'Hapus pelajaran ini'}
-                tanya="Hapus pelajaran beserta isinya?"
-                disabled={sibuk}
-                onYakin={hapusPelajaran}
-              />
-            </div>
-          </section>
         </>
       )}
     </>

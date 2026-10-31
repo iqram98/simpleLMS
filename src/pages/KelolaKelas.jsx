@@ -1,7 +1,9 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import Ikon from '../components/Ikon.jsx'
 import { Kosong, KotakGalat, LencanaStatus, Memuat, TombolKonfirmasi, TombolSalin, UbahDiTempat } from '../components/ui.jsx'
 import { useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
+import KelolaPengumuman from '../pengumuman/KelolaPengumuman.jsx'
 import { unduhCsv } from '../ujian/csv.js'
 
 // Kelola satu kelas: kode kelas, permintaan bergabung, daftar siswa dan progres.
@@ -19,7 +21,7 @@ export default function KelolaKelas() {
         .maybeSingle(),
     )
     if (!kelas) return null
-    const [daftar, progres, modul, nilai] = await Promise.all([
+    const [daftar, progres, modul, nilai, nilaiTugas] = await Promise.all([
       supabase
         .from('enrollments')
         .select('id,user_id,status,requested_at,profiles(full_name,email,nisn,jenis_kelamin,no_hp)')
@@ -33,13 +35,19 @@ export default function KelolaKelas() {
         .order('position')
         .order('position', { referencedTable: 'lessons' }),
       supabase.from('nilai_ujian_kelas').select('user_id,lesson_id,nilai_akhir,jumlah_percobaan').eq('class_id', kelasId),
+      supabase
+        .from('nilai_tugas_kelas')
+        .select('user_id,lesson_id,nilai_maks,nilai,perlu_dinilai,terlambat')
+        .eq('class_id', kelasId),
     ])
     return {
       kelas,
       pendaftar: ambil(daftar),
       progres: Object.fromEntries(ambil(progres).map((p) => [p.user_id, p])),
       ujian: ambil(modul).flatMap((m) => m.lessons.filter((l) => l.kind === 'ujian' && l.is_published)),
+      tugas: ambil(modul).flatMap((m) => m.lessons.filter((l) => l.kind === 'tugas' && l.is_published)),
       nilai: Object.fromEntries(ambil(nilai).map((n) => [`${n.user_id}|${n.lesson_id}`, n])),
+      nilaiTugas: Object.fromEntries(ambil(nilaiTugas).map((n) => [`${n.user_id}|${n.lesson_id}`, n])),
     }
   }, [kelasId])
 
@@ -65,21 +73,31 @@ export default function KelolaKelas() {
     )
   }
 
-  const { kelas, pendaftar, progres, ujian, nilai } = data
+  const { kelas, pendaftar, progres, ujian, tugas, nilai, nilaiTugas } = data
   const menunggu = pendaftar.filter((p) => p.status === 'menunggu')
   const aktif = pendaftar.filter((p) => p.status === 'aktif')
   const lainnya = pendaftar.filter((p) => p.status === 'ditolak' || p.status === 'dikeluarkan')
   const nama = (p) => p.profiles?.full_name || p.profiles?.email || 'Tanpa nama'
 
+  // Tugas: nilai bila sudah dinilai, 'menunggu' bila perlu dinilai, kosong bila belum kirim.
+  const teksTugas = (n) => (!n || n.perlu_dinilai == null ? '' : n.perlu_dinilai ? 'menunggu' : fmt(n.nilai))
   const fmt = (n) => (n == null ? '' : String(Math.round(Number(n) * 100) / 100).replace('.', ','))
   const unduhNilai = () => {
-    const kepala = ['Nama', 'NISN', 'Email', 'Progres (%)', ...ujian.map((u) => u.title)]
+    const kepala = [
+      'Nama',
+      'NISN',
+      'Email',
+      'Progres (%)',
+      ...ujian.map((u) => u.title),
+      ...tugas.map((t) => `${t.title} (tugas)`),
+    ]
     const isi = aktif.map((p) => [
       nama(p),
       p.profiles?.nisn ?? '',
       p.profiles?.email ?? '',
       progres[p.user_id]?.persen ?? 0,
       ...ujian.map((u) => fmt(nilai[`${p.user_id}|${u.id}`]?.nilai_akhir)),
+      ...tugas.map((t) => teksTugas(nilaiTugas[`${p.user_id}|${t.id}`])),
     ])
     unduhCsv(`Nilai ${kelas.name}.csv`, [kepala, ...isi])
   }
@@ -112,6 +130,9 @@ export default function KelolaKelas() {
         <Link className="btn kecil" to={`/kelas/${kelasId}`}>
           Lihat sebagai siswa
         </Link>
+        <Link className="btn kecil" to={`/kelas/${kelasId}/forum`}>
+          <Ikon nama="forum" /> Forum
+        </Link>
       </div>
 
       <UbahDiTempat tag="h1" nilai={kelas.name} label="nama kelas" onSimpan={(v) => ubahKelas({ name: v })} />
@@ -120,7 +141,7 @@ export default function KelolaKelas() {
       <section className="panel" aria-labelledby="judul-kode">
         <h2 id="judul-kode">Kode kelas</h2>
         <p>
-          <span className="kode">{kelas.join_code}</span> <TombolSalin teks={kelas.join_code} />
+          <span className="kode">{kelas.join_code}</span> <TombolSalin teks={kelas.join_code} ikon label="Salin kode kelas" />
         </p>
         <p className="petunjuk">
           Bagikan kode ini ke siswa.{' '}
@@ -128,23 +149,9 @@ export default function KelolaKelas() {
             ? 'Kelas diarsipkan, jadi kode tidak bisa dipakai.'
             : 'Siswa yang memasukkan kode menunggu persetujuan Anda.'}
         </p>
-        <div className="baris">
-          <TombolKonfirmasi
-            label="Buat kode baru"
-            tanya="Kode lama tidak berlaku lagi. Lanjut?"
-            disabled={sibuk}
-            onYakin={kodeBaru}
-          />
-          <button
-            type="button"
-            className="btn kecil"
-            disabled={sibuk}
-            onClick={() => ubahKelas({ is_archived: !kelas.is_archived })}
-          >
-            {kelas.is_archived ? 'Buka arsip kelas' : 'Arsipkan kelas'}
-          </button>
-        </div>
       </section>
+
+      <KelolaPengumuman kursusId={kelas.course_id} />
 
       <section className="bagian" aria-labelledby="judul-menunggu">
         <h2 id="judul-menunggu">Menunggu persetujuan ({menunggu.length})</h2>
@@ -258,18 +265,21 @@ export default function KelolaKelas() {
 
       {aktif.length > 0 && (
         <section className="bagian" aria-labelledby="judul-nilai">
-          <h2 id="judul-nilai">Nilai ujian</h2>
-          {ujian.length === 0 ? (
-            <Kosong>Belum ada ujian yang diterbitkan di kursus ini.</Kosong>
+          <h2 id="judul-nilai">Nilai ujian dan tugas</h2>
+          {ujian.length + tugas.length === 0 ? (
+            <Kosong>Belum ada ujian atau tugas yang diterbitkan di kursus ini.</Kosong>
           ) : (
             <>
-              <div className="tabel-bungkus">
+              <div className="tabel-geser">
                 <table>
                   <thead>
                     <tr>
                       <th>Nama</th>
                       {ujian.map((u) => (
                         <th key={u.id}>{u.title}</th>
+                      ))}
+                      {tugas.map((t) => (
+                        <th key={t.id}>{t.title} (tugas)</th>
                       ))}
                     </tr>
                   </thead>
@@ -280,6 +290,15 @@ export default function KelolaKelas() {
                         {ujian.map((u) => {
                           const n = nilai[`${p.user_id}|${u.id}`]
                           return <td key={u.id}>{n?.nilai_akhir == null ? '-' : fmt(n.nilai_akhir)}</td>
+                        })}
+                        {tugas.map((t) => {
+                          const n = nilaiTugas[`${p.user_id}|${t.id}`]
+                          const teks = teksTugas(n)
+                          return (
+                            <td key={t.id}>
+                              {teks === '' ? '-' : n?.nilai_maks && teks !== 'menunggu' ? `${teks} / ${fmt(n.nilai_maks)}` : teks}
+                            </td>
+                          )
                         })}
                       </tr>
                     ))}
@@ -322,10 +341,34 @@ export default function KelolaKelas() {
         </section>
       )}
 
-      <section className="panel" aria-labelledby="judul-hapus-kelas">
-        <h3 id="judul-hapus-kelas">Hapus kelas</h3>
-        <p className="petunjuk">Daftar siswa dan progres kelas ini ikut terhapus. Isi kursus tidak terpengaruh.</p>
-        <div>
+      <section className="panel zona-bahaya" aria-labelledby="judul-hapus-kelas">
+        <h3 id="judul-hapus-kelas">Pengaturan lanjutan</h3>
+        <div className="zona-baris">
+          <p className="petunjuk">
+            {kelas.is_archived
+              ? 'Kelas diarsipkan. Buka arsip agar kode kelas bisa dipakai lagi.'
+              : 'Arsipkan kelas bila sudah selesai. Kode kelas tidak bisa dipakai lagi, data tetap tersimpan.'}
+          </p>
+          <button
+            type="button"
+            className="btn kecil"
+            disabled={sibuk}
+            onClick={() => ubahKelas({ is_archived: !kelas.is_archived })}
+          >
+            {kelas.is_archived ? 'Buka arsip kelas' : 'Arsipkan kelas'}
+          </button>
+        </div>
+        <div className="zona-baris">
+          <p className="petunjuk">Buat kode baru jika kode lama bocor. Kode lama langsung tidak berlaku.</p>
+          <TombolKonfirmasi
+            label="Buat kode baru"
+            tanya="Kode lama tidak berlaku lagi. Lanjut?"
+            disabled={sibuk}
+            onYakin={kodeBaru}
+          />
+        </div>
+        <div className="zona-baris">
+          <p className="petunjuk">Daftar siswa dan progres kelas ini ikut terhapus. Isi kursus tidak terpengaruh.</p>
           <TombolKonfirmasi
             label="Hapus kelas ini"
             tanya="Hapus kelas dan daftar siswanya?"

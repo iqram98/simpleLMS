@@ -5,6 +5,8 @@ import { ambil, pesanError, supabase } from '../lib/supabase.js'
 import { ATURAN_NILAI, PEMBAHASAN } from './konstanta.js'
 import HasilUjian from './HasilUjian.jsx'
 import PengerjaanUjian from './PengerjaanUjian.jsx'
+import PratinjauSoal from './PratinjauSoal.jsx'
+import { masukLayarPenuh } from './pengawas.js'
 
 const angka = (n) => (n == null ? '-' : String(Math.round(Number(n) * 100) / 100).replace('.', ','))
 const waktu = (iso) =>
@@ -18,7 +20,7 @@ const waktu = (iso) =>
 export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBerubah, onKerja }) {
   const [layar, setLayar] = useState({ nama: 'ringkas' })
   const { sibuk, galat, setGalat, jalankan } = useAksi()
-  const kerja = layar.nama === 'kerja'
+  const kerja = layar.nama === 'kerja' || layar.nama === 'pratinjau'
   useEffect(() => {
     onKerja?.(kerja)
     return () => onKerja?.(false)
@@ -28,7 +30,9 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
     const [st, jumlah, percobaan, nilai] = await Promise.all([
       supabase
         .from('ujian_pengaturan')
-        .select('durasi_menit,maks_percobaan,kkm,aturan_nilai,wajib_lulus,buka_pada,tutup_pada,pembahasan')
+        .select(
+          'durasi_menit,maks_percobaan,kkm,aturan_nilai,wajib_lulus,buka_pada,tutup_pada,pembahasan,layar_penuh,maks_pelanggaran',
+        )
         .eq('lesson_id', pelajaranId)
         .maybeSingle(),
       supabase.rpc('ringkasan_soal', { pelajaran: pelajaranId }),
@@ -86,22 +90,30 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
     [onNilaiBerubah, muatUlang],
   )
 
-  const mulai = () =>
-    jalankan(async () => {
+  const mulai = () => {
+    // Layar penuh hanya boleh diminta langsung dari klik, sebelum menunggu server.
+    if (data?.st?.layar_penuh === 'otomatis') masukLayarPenuh()
+    return jalankan(async () => {
       const d = ambil(await supabase.rpc('mulai_ujian', { pelajaran: pelajaranId }))
       setLayar({ nama: 'kerja', data: d })
     })
+  }
 
   if (memuat && !data) return <Memuat />
   if (error) return <KotakGalat galat={pesanError(error)} />
   const { st, soal, riwayat, nilaiAkhir } = data
   if (!st) return <p className="info">Pengaturan ujian belum tersedia.</p>
 
+  if (layar.nama === 'pratinjau') {
+    return <PratinjauSoal pelajaranId={pelajaranId} onTutup={() => setLayar({ nama: 'ringkas' })} />
+  }
   if (layar.nama === 'kerja') {
     return (
       <PengerjaanUjian
         key={layar.data.percobaan_id}
         data={layar.data}
+        layarPenuh={st.layar_penuh}
+        maksPelanggaran={st.maks_pelanggaran}
         onSelesai={(oto) => selesaiMengerjakan(layar.data.percobaan_id, oto)}
       />
     )
@@ -165,7 +177,16 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
         {st.wajib_lulus && 'Kamu harus mencapai KKM agar pelajaran ini dianggap selesai.'}
       </p>
 
-      {!aktif && <p className="info">Pratinjau guru: tombol mengerjakan hanya muncul untuk siswa.</p>}
+      {!aktif && (
+        <div className="info baris sebar">
+          <span>Pratinjau guru: siswa melihat bagian ini dengan tombol mengerjakan.</span>
+          {soal > 0 && (
+            <button type="button" className="btn kecil utama" onClick={() => setLayar({ nama: 'pratinjau' })}>
+              Lihat soal seperti siswa
+            </button>
+          )}
+        </div>
+      )}
 
       {aktif && (
         <>
@@ -205,6 +226,11 @@ export default function PanelUjian({ pelajaranId, kelasId, uid, aktif, onNilaiBe
                   Waktu mulai berjalan begitu kamu menekan tombol dan tidak berhenti walau halaman ditutup.
                 </p>
               )}
+              <p className="petunjuk">
+                Selama ujian, perpindahan tab atau aplikasi dicatat dan dapat dilihat gurumu.
+                {st.layar_penuh === 'otomatis' && ' Ujian berjalan dalam layar penuh dan keluar dari layar penuh juga dicatat.'}
+                {st.maks_pelanggaran ? ` Setelah ${st.maks_pelanggaran} kejadian, ujian dikumpulkan otomatis.` : ''}
+              </p>
               <button type="button" className="btn utama" disabled={sibuk} onClick={mulai}>
                 {berjalan ? 'Lanjutkan mengerjakan' : riwayat.length ? 'Ulangi ujian' : 'Mulai ujian'}
               </button>

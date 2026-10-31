@@ -29,7 +29,11 @@ export function toEmbed(mentah) {
     }
     m = path.match(new RegExp(`/folders/(${ID})`))
     if (m) {
-      return { jenis: 'Google Drive (folder)', src: `https://drive.google.com/embeddedfolderview?id=${m[1]}#list`, rasio: 'tinggi' }
+      return {
+        jenis: 'Google Drive (folder)',
+        src: `https://drive.google.com/embeddedfolderview?id=${m[1]}#list`,
+        rasio: 'tinggi',
+      }
     }
     return null
   }
@@ -67,6 +71,13 @@ export function toEmbed(mentah) {
   // Termasuk bentuk Google Workspace: /a/macros/domain.sch.id/s/ID/exec
   if (host === 'script.google.com' && new RegExp(`^/(?:macros|a/macros/[\\w.-]+)/s/${ID}/exec$`).test(path)) {
     return { jenis: 'Web app Apps Script', src: `https://script.google.com${path}${u.search}`, rasio: 'tinggi' }
+  }
+
+  // Proyek Scratch yang dibagikan
+  if (host === 'scratch.mit.edu') {
+    m = path.match(/^\/projects\/(\d{1,12})/)
+    if (m) return { jenis: 'Scratch', src: `https://scratch.mit.edu/projects/${m[1]}/embed`, rasio: 'lebar' }
+    return null
   }
 
   // YouTube

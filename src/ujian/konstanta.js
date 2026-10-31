@@ -56,13 +56,15 @@ export const ATURAN_NILAI = [
 ]
 
 export const PEMBAHASAN = [
-  { nilai: 'tidak', label: 'Siswa hanya melihat nilai' },
+  { nilai: 'tidak', singkat: 'Hanya nilai', label: 'Siswa hanya melihat nilai' },
   {
     nilai: 'setelah_selesai',
+    singkat: 'Setelah mengumpulkan',
     label: 'Kunci dan pembahasan terlihat setelah mengumpulkan',
   },
   {
     nilai: 'setelah_tutup',
+    singkat: 'Setelah waktu tutup',
     label: 'Kunci dan pembahasan terlihat setelah waktu tutup',
   },
 ]

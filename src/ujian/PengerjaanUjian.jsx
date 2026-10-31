@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { KotakGalat } from '../components/ui.jsx'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
 import { sisaWaktu } from './konstanta.js'
+import { keluarLayarPenuh, layarPenuhDidukung, masukLayarPenuh, sedangLayarPenuh, usePengawas } from './pengawas.js'
 import Teks from './Teks.jsx'
 import { terisi, tampilRumpang } from './TipeBaru.jsx'
 
@@ -9,7 +10,7 @@ const sudahDijawab = terisi
 
 // Layar mengerjakan ujian: satu soal per layar, jawaban tersimpan otomatis,
 // waktu mengikuti jam server, dikumpulkan otomatis saat waktu habis.
-export default function PengerjaanUjian({ data, onSelesai }) {
+export default function PengerjaanUjian({ data, onSelesai, layarPenuh = 'tidak', maksPelanggaran = null, pratinjau = false }) {
   const { percobaan_id: pid, soal, batas_pada: batas } = data
   const [jawab, setJawab] = useState(() => data.jawaban ?? {})
   const [i, setI] = useState(0)
@@ -59,6 +60,7 @@ export default function PengerjaanUjian({ data, onSelesai }) {
     const baru = { ...terbaru.current, [id]: nilai }
     terbaru.current = baru
     setJawab(baru)
+    if (pratinjau) return // pratinjau guru: jawaban tidak disimpan
     kotor.current = true
     clearTimeout(tunda.current)
     tunda.current = setTimeout(simpan, 700)
@@ -76,6 +78,7 @@ export default function PengerjaanUjian({ data, onSelesai }) {
   const kumpulkan = useCallback(
     async (otomatis = false) => {
       if (selesaiRef.current) return
+      if (pratinjau) return onSelesai(false)
       setMengumpulkan(true)
       setGalat('')
       try {
@@ -102,7 +105,7 @@ export default function PengerjaanUjian({ data, onSelesai }) {
         setMengumpulkan(false)
       }
     },
-    [pid, onSelesai],
+    [pid, onSelesai, pratinjau],
   )
 
   // Hitung mundur berdasarkan jam server.
@@ -128,12 +131,38 @@ export default function PengerjaanUjian({ data, onSelesai }) {
     return () => window.removeEventListener('beforeunload', f)
   }, [])
 
+  // Pemantauan: pindah tab dan keluar dari layar penuh dicatat. Bila batas
+  // tercapai, server sudah mengumpulkan percobaan ini.
+  const { peringatan, tutupPeringatan } = usePengawas({
+    pid: pratinjau ? null : pid,
+    layarPenuh,
+    onTutup: () => kumpulkan('pelanggaran'),
+  })
+  const [penuh, setPenuh] = useState(sedangLayarPenuh())
+  useEffect(() => {
+    const f = () => setPenuh(sedangLayarPenuh())
+    document.addEventListener('fullscreenchange', f)
+    return () => {
+      document.removeEventListener('fullscreenchange', f)
+      keluarLayarPenuh()
+    }
+  }, [])
+  const perluMasuk = !pratinjau && layarPenuh === 'otomatis' && layarPenuhDidukung() && !penuh
+
   const belum = useMemo(() => soal.map((s, n) => (sudahDijawab(jawab[s.id]) ? null : n + 1)).filter(Boolean), [soal, jawab])
   const s = soal[i]
   const mendesak = sisa != null && sisa <= 60000
 
   return (
     <section className="ujian-jalan" aria-label="Mengerjakan ujian">
+      {pratinjau && (
+        <p className="info baris sebar">
+          <span>Pratinjau guru: jawaban tidak disimpan dan tidak dinilai. Urutan pilihan yang diacak ditampilkan terbalik.</span>
+          <button type="button" className="btn kecil" onClick={() => onSelesai(false)}>
+            Tutup pratinjau
+          </button>
+        </p>
+      )}
       <div className="ujian-atas">
         <span>
           Soal {i + 1} dari {soal.length}
@@ -143,10 +172,53 @@ export default function PengerjaanUjian({ data, onSelesai }) {
             {sisaWaktu(sisa)}
           </span>
         )}
-        <span className={`petunjuk simpanan ${simpanan}`} role="status">
+        {!pratinjau && layarPenuhDidukung() && (
+          <button type="button" className="btn kecil" onClick={() => (penuh ? keluarLayarPenuh() : masukLayarPenuh())}>
+            {penuh ? 'Keluar layar penuh' : 'Layar penuh'}
+          </button>
+        )}
+        <span className={`petunjuk simpanan ${simpanan}`} role="status" hidden={pratinjau}>
           {simpanan === 'tersimpan' ? 'Tersimpan' : simpanan === 'menyimpan' ? 'Menyimpan…' : 'Belum tersimpan, mencoba lagi'}
         </span>
       </div>
+
+      {peringatan && (
+        <div className="peringatan-ujian" role="alertdialog" aria-modal="true" aria-labelledby="judul-peringatan">
+          <div className="peringatan-isi">
+            <h2 id="judul-peringatan">Kamu meninggalkan ujian</h2>
+            <p>
+              {peringatan.jenis === 'keluar_layar_penuh' ? 'Kamu keluar dari layar penuh.' : 'Kamu berpindah tab atau aplikasi.'}{' '}
+              Kejadian ini dicatat dan dapat dilihat gurumu.
+            </p>
+            <p>
+              <strong>Kejadian ke-{peringatan.jumlah}</strong>
+              {maksPelanggaran ? `. Ujian dikumpulkan otomatis pada kejadian ke-${maksPelanggaran}.` : '.'}
+            </p>
+            {peringatan.ditutup ? (
+              <p role="status">Batas tercapai. Ujianmu sedang dikumpulkan…</p>
+            ) : (
+              <button
+                type="button"
+                className="btn utama"
+                onClick={() => {
+                  if (layarPenuh === 'otomatis' && layarPenuhDidukung() && !sedangLayarPenuh()) masukLayarPenuh()
+                  tutupPeringatan()
+                }}
+              >
+                Kembali ke ujian
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {perluMasuk && !peringatan && (
+        <p className="info baris sebar">
+          <span>Ujian ini berjalan dalam layar penuh. Keluar dari layar penuh dicatat.</span>
+          <button type="button" className="btn kecil utama" onClick={masukLayarPenuh}>
+            Masuk layar penuh
+          </button>
+        </p>
+      )}
 
       <nav className="navigator" aria-label="Nomor soal">
         {soal.map((x, n) => (
@@ -172,6 +244,13 @@ export default function PengerjaanUjian({ data, onSelesai }) {
             <Teks doc={s.type === 'rumpang' ? tampilRumpang(s.prompt_rich) : s.prompt_rich} />
           </div>
           <Jawaban soal={s} nilai={jawab[s.id]} onUbah={(v) => ubah(s.id, v)} />
+          {i < soal.length - 1 && (
+            <div className="baris ujung">
+              <button type="button" className="btn kecil" onClick={() => setKonfirmasi(true)}>
+                Sudah selesai? Periksa dan kumpulkan
+              </button>
+            </div>
+          )}
           <div className="pager">
             <button type="button" className="btn" disabled={i === 0} onClick={() => setI(i - 1)}>
               ← Sebelumnya
@@ -186,13 +265,6 @@ export default function PengerjaanUjian({ data, onSelesai }) {
               </button>
             )}
           </div>
-          {i < soal.length - 1 && (
-            <div>
-              <button type="button" className="btn kecil" onClick={() => setKonfirmasi(true)}>
-                Periksa dan kumpulkan
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -210,7 +282,7 @@ export default function PengerjaanUjian({ data, onSelesai }) {
           <KotakGalat galat={galat} />
           <div className="baris">
             <button type="button" className="btn utama" disabled={mengumpulkan} onClick={() => kumpulkan(false)}>
-              {mengumpulkan ? 'Mengumpulkan…' : 'Ya, kumpulkan'}
+              {mengumpulkan ? 'Mengumpulkan…' : pratinjau ? 'Selesai pratinjau' : 'Ya, kumpulkan'}
             </button>
             <button type="button" className="btn" disabled={mengumpulkan} onClick={() => setKonfirmasi(false)}>
               Kembali ke soal

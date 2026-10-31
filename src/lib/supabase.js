@@ -37,6 +37,14 @@ const PESAN = {
   belum_selesai: 'Percobaan ini belum dikumpulkan.',
   jenis_tidak_bisa_diubah: 'Jenis pelajaran tidak bisa diubah.',
   jawaban_tidak_valid: 'Jawaban tidak valid.',
+  tautan_tidak_valid: 'Tautan tidak valid. Pakai alamat yang diawali https:// dan periksa jumlah tautannya.',
+  topik_ditutup: 'Topik ini sudah ditutup oleh guru.',
+  pelajaran_tidak_valid: 'Pelajaran yang dipilih tidak bisa dipakai sebagai tag.',
+  tenggat_lewat: 'Tenggat sudah lewat dan tugas ini tidak menerima kiriman terlambat.',
+  sudah_dikirim: 'Tugas ini sudah dikirim dan guru tidak mengizinkan kirim ulang.',
+  catatan_terlalu_panjang: 'Catatan terlalu panjang (maksimal 2000 karakter).',
+  komentar_terlalu_panjang: 'Komentar terlalu panjang (maksimal 2000 karakter).',
+  nilai_tidak_valid: 'Nilai harus antara 0 dan nilai maksimum tugas.',
 }
 
 // Mengubah galat teknis menjadi kalimat yang dapat dipahami pengguna.

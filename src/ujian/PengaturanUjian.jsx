@@ -20,7 +20,7 @@ export default function PengaturanUjian({ pelajaranId }) {
         await supabase
           .from('ujian_pengaturan')
           .select(
-            'durasi_menit,maks_percobaan,kkm,aturan_nilai,wajib_lulus,acak_soal,acak_pilihan,buka_pada,tutup_pada,pembahasan',
+            'durasi_menit,maks_percobaan,kkm,aturan_nilai,wajib_lulus,acak_soal,acak_pilihan,buka_pada,tutup_pada,pembahasan,layar_penuh,maks_pelanggaran',
           )
           .eq('lesson_id', pelajaranId)
           .single(),
@@ -47,6 +47,9 @@ function Formulir({ awal, pelajaranId }) {
     buka: keLokal(awal.buka_pada),
     tutup: keLokal(awal.tutup_pada),
     bahas: awal.pembahasan,
+    layar: awal.layar_penuh,
+    batasPel: awal.maks_pelanggaran != null,
+    maksPel: String(awal.maks_pelanggaran ?? 3),
   })
   const set = (k) => (e) => {
     setTersimpan(false)
@@ -62,6 +65,9 @@ function Formulir({ awal, pelajaranId }) {
     const kkm = Number(String(f.kkm).replace(',', '.'))
     if (f.batas && (!Number.isInteger(durasi) || durasi < 1 || durasi > 600)) return setGalat('Durasi harus 1 sampai 600 menit.')
     if (!Number.isFinite(kkm) || kkm < 0 || kkm > 100) return setGalat('KKM harus antara 0 dan 100.')
+    const maksPel = f.batasPel ? Number(f.maksPel) : null
+    if (f.batasPel && (!Number.isInteger(maksPel) || maksPel < 1 || maksPel > 20))
+      return setGalat('Batas kejadian harus 1 sampai 20.')
     if (f.buka && f.tutup && new Date(f.tutup) <= new Date(f.buka)) return setGalat('Waktu tutup harus setelah waktu buka.')
     return jalankan(async () => {
       ambil(
@@ -78,6 +84,8 @@ function Formulir({ awal, pelajaranId }) {
             buka_pada: keIso(f.buka),
             tutup_pada: keIso(f.tutup),
             pembahasan: f.bahas,
+            layar_penuh: f.layar,
+            maks_pelanggaran: maksPel,
           })
           .eq('lesson_id', pelajaranId)
           .select('lesson_id'),
@@ -165,11 +173,49 @@ function Formulir({ awal, pelajaranId }) {
         <select id="uj-bahas" value={f.bahas} onChange={set('bahas')}>
           {PEMBAHASAN.map((p) => (
             <option key={p.nilai} value={p.nilai}>
-              {p.label}
+              {p.singkat}
             </option>
           ))}
         </select>
+        <span className="petunjuk">{PEMBAHASAN.find((p) => p.nilai === f.bahas)?.label}.</span>
       </div>
+
+      <fieldset className="pilihan-soal">
+        <legend>Pengawasan saat ujian</legend>
+        <div className="kolom">
+          <label htmlFor="uj-layar">Layar penuh</label>
+          <select id="uj-layar" value={f.layar} onChange={set('layar')}>
+            <option value="tidak">Tidak diwajibkan</option>
+            <option value="otomatis">Otomatis saat ujian dimulai</option>
+          </select>
+          <span className="petunjuk">
+            Bila otomatis, keluar dari layar penuh dicatat. iPhone tidak mendukung layar penuh untuk halaman web, jadi siswa
+            iPhone tetap bisa mengerjakan.
+          </span>
+        </div>
+        <label>
+          <input type="checkbox" checked={f.batasPel} onChange={set('batasPel')} />
+          Kumpulkan otomatis bila siswa meninggalkan ujian berkali-kali
+        </label>
+        {f.batasPel && (
+          <div className="kolom">
+            <label htmlFor="uj-maks-pel">Dikumpulkan pada kejadian ke-</label>
+            <input
+              id="uj-maks-pel"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={20}
+              value={f.maksPel}
+              onChange={set('maksPel')}
+            />
+          </div>
+        )}
+        <span className="petunjuk">
+          Pindah tab atau aplikasi selalu dicatat dan terlihat di tab Hasil. Perangkat sentuh bisa memicu catatan tanpa sengaja
+          (misalnya telepon masuk), jadi tinjau catatan sebelum menilai.
+        </span>
+      </fieldset>
 
       <KotakGalat galat={galat} onTutup={() => setGalat('')} />
       <div className="baris">

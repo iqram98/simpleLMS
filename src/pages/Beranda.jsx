@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
+import Ikon from '../components/Ikon.jsx'
 import { Kosong, KotakGalat, LencanaStatus, Memuat, TombolKonfirmasi } from '../components/ui.jsx'
 import { useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
+import LanjutBelajar from '../beranda/LanjutBelajar.jsx'
+import PerluTindakan from '../beranda/PerluTindakan.jsx'
 
 const PESAN_GABUNG = {
   menunggu: 'Permintaan terkirim. Tunggu persetujuan guru, lalu kelasmu akan muncul di sini.',
@@ -15,17 +18,38 @@ export default function Beranda() {
   const { profil, adalahGuru, adalahAdmin } = useAuth()
   const guru = profil.role === 'guru' || profil.role === 'calon_guru'
   const identitasKosong = guru ? !profil.nip : !profil.nisn
+  const [sembunyiBanner, setSembunyiBanner] = useState(() => {
+    try {
+      return sessionStorage.getItem('lms.banner.identitas') === '1'
+    } catch {
+      return false
+    }
+  })
+  const tutupBanner = () => {
+    setSembunyiBanner(true)
+    try {
+      sessionStorage.setItem('lms.banner.identitas', '1')
+    } catch {
+      /* tidak masalah bila tidak tersimpan */
+    }
+  }
   return (
     <main className="halaman">
       <h1>Halo, {profil.full_name}</h1>
-      {identitasKosong && (
-        <p className="info">
-          Identitasmu belum lengkap. <Link to="/profil">Lengkapi profil</Link> (boleh nanti).
+      {identitasKosong && !sembunyiBanner && (
+        <p className="info baris sebar">
+          <span>
+            Identitasmu belum lengkap. <Link to="/profil">Lengkapi profil</Link> (boleh nanti).
+          </span>
+          <button type="button" className="btn kecil" onClick={tutupBanner}>
+            Tutup
+          </button>
         </p>
       )}
       {profil.role === 'calon_guru' && <PengajuanGuruMenunggu />}
+      {(adalahGuru || adalahAdmin) && <PerluTindakan />}
       {(adalahGuru || adalahAdmin) && <KursusSaya />}
-      <KelasDiikuti />
+      <KelasDiikuti guru={adalahGuru || adalahAdmin} />
       {profil.role === 'siswa' && !profil.is_admin && <AjukanGuru />}
     </main>
   )
@@ -33,7 +57,7 @@ export default function Beranda() {
 
 /* ---------- kelas yang saya ikuti (siswa, dan guru sebagai siswa) ---------- */
 
-function KelasDiikuti() {
+function KelasDiikuti({ guru }) {
   const { uid } = useAuth()
   const { data, error, memuat, muatUlang } = useMuat(async () => {
     const daftar = ambil(
@@ -58,37 +82,47 @@ function KelasDiikuti() {
     return daftar.map((d) => ({ ...d, nama: nama[d.class_id] ?? null }))
   }, [uid])
 
-  return (
-    <section className="bagian" aria-labelledby="judul-kelas">
-      <h2 id="judul-kelas">Kelas yang saya ikuti</h2>
-      {memuat && !data && <Memuat />}
-      <KotakGalat galat={error && pesanError(error)} />
-      {data && data.length === 0 && <Kosong>Belum ada kelas. Masukkan kode kelas dari gurumu di bawah.</Kosong>}
-      {data && data.length > 0 && (
-        <div className="kartu-grid">
-          {data.map((d) => (
-            <div className="kartu" key={d.id}>
-              <h3>{d.nama ?? 'Kelas tidak tersedia'}</h3>
-              <div>
-                <LencanaStatus status={d.status} />
-              </div>
-              {d.status === 'aktif' && (
-                <div className="baris">
-                  <Link className="btn utama" to={`/kelas/${d.class_id}`}>
-                    Buka kelas
-                  </Link>
-                </div>
-              )}
-              {d.status === 'menunggu' && <p className="petunjuk">Menunggu guru menyetujui permintaanmu.</p>}
-              {(d.status === 'ditolak' || d.status === 'dikeluarkan') && (
-                <p className="petunjuk">Masukkan kode kelas lagi bila ingin mengajukan ulang.</p>
-              )}
-            </div>
-          ))}
+  // Guru tanpa kelas sebagai siswa tidak perlu melihat bagian ini penuh.
+  if (guru && data && data.length === 0) {
+    return (
+      <details className="panel">
+        <summary>Gabung ke kelas sebagai siswa</summary>
+        <div className="bagian">
+          <GabungKelas onSelesai={muatUlang} />
         </div>
-      )}
-      <GabungKelas onSelesai={muatUlang} />
-    </section>
+      </details>
+    )
+  }
+
+  const aktif = (data ?? []).filter((d) => d.status === 'aktif')
+  const lain = (data ?? []).filter((d) => d.status !== 'aktif')
+  return (
+    <>
+      {aktif.length > 0 && <LanjutBelajar kelas={aktif} />}
+      <section className="bagian" aria-labelledby="judul-kelas">
+        <h2 id="judul-kelas">{aktif.length > 0 ? 'Permintaan dan gabung kelas' : 'Kelas yang saya ikuti'}</h2>
+        {memuat && !data && <Memuat />}
+        <KotakGalat galat={error && pesanError(error)} />
+        {data && data.length === 0 && <Kosong>Belum ada kelas. Masukkan kode kelas dari gurumu di bawah.</Kosong>}
+        {lain.length > 0 && (
+          <div className="kartu-grid">
+            {lain.map((d) => (
+              <div className="kartu" key={d.id}>
+                <h3>{d.nama ?? 'Kelas tidak tersedia'}</h3>
+                <div>
+                  <LencanaStatus status={d.status} />
+                </div>
+                {d.status === 'menunggu' && <p className="petunjuk">Menunggu guru menyetujui permintaanmu.</p>}
+                {(d.status === 'ditolak' || d.status === 'dikeluarkan') && (
+                  <p className="petunjuk">Masukkan kode kelas lagi bila ingin mengajukan ulang.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <GabungKelas onSelesai={muatUlang} />
+      </section>
+    </>
   )
 }
 
@@ -163,9 +197,7 @@ function KursusSaya() {
     const bersih = judul.trim()
     if (!bersih) return
     jalankan(async () => {
-      const baru = ambil(
-        await supabase.from('courses').insert({ owner_id: uid, title: bersih }).select('id').single(),
-      )
+      const baru = ambil(await supabase.from('courses').insert({ owner_id: uid, title: bersih }).select('id').single())
       setJudul('')
       navigate(`/kursus/${baru.id}`)
     })
@@ -183,24 +215,40 @@ function KursusSaya() {
       {data && data.length > 0 && (
         <div className="kartu-grid">
           {data.map((k) => (
-            <div className="kartu" key={k.id}>
-              <h3>{k.title}</h3>
-              <p className="petunjuk">
-                {k.classes.length === 0
-                  ? 'Belum ada kelas'
-                  : k.classes
-                      .map((c) => c.name + (c.is_archived ? ' (arsip)' : ''))
-                      .join(', ')}
-              </p>
-              <div className="baris">
+            <div className="kartu kartu-kursus" key={k.id}>
+              <div className="kursus-kepala">
+                <h3>{k.title}</h3>
+                <p className="petunjuk">
+                  {k.classes.length === 0 ? 'Belum ada kelas' : `${k.classes.length} kelas`}
+                  {k.classes.some((c) => c.is_archived) && ` · ${k.classes.filter((c) => c.is_archived).length} diarsipkan`}
+                </p>
+              </div>
+              {k.classes.length > 0 ? (
+                <div className="kursus-kelas">
+                  <span className="label-kecil" id={`kelas-${k.id}`}>
+                    Kelola siswa
+                  </span>
+                  <div className="chip-daftar" role="group" aria-labelledby={`kelas-${k.id}`}>
+                    {k.classes.map((c) => (
+                      <Link
+                        key={c.id}
+                        className={`chip-kelas ${c.is_archived ? 'arsip' : ''}`}
+                        to={`/kelola/${c.id}`}
+                        title={`Kelola siswa kelas ${c.name}${c.is_archived ? ' (arsip)' : ''}`}
+                      >
+                        {c.name}
+                        {c.is_archived && <span className="sr-only"> (arsip)</span>}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="petunjuk">Buat kelas dari halaman kursus untuk mendapatkan kode gabung.</p>
+              )}
+              <div className="kartu-aksi">
                 <Link className="btn utama" to={`/kursus/${k.id}`}>
-                  Kelola isi
+                  <Ikon nama="buku" /> Kelola isi
                 </Link>
-                {k.classes.map((c) => (
-                  <Link key={c.id} className="btn kecil" to={`/kelola/${c.id}`}>
-                    {c.name}
-                  </Link>
-                ))}
               </div>
             </div>
           ))}
@@ -237,14 +285,12 @@ function AjukanGuru() {
     <details className="panel">
       <summary>Saya seorang guru</summary>
       <div className="bagian">
-        <p>
-          Ajukan akunmu sebagai guru. Admin akan memeriksa lalu menyetujui. Sebelum disetujui, akunmu tetap berperan
-          siswa.
-        </p>
+        <p>Ajukan akunmu sebagai guru. Admin akan memeriksa lalu menyetujui. Sebelum disetujui, akunmu tetap berperan siswa.</p>
         <KotakGalat galat={galat} />
         <div>
           <TombolKonfirmasi
             label="Ajukan sebagai guru"
+            kelas=""
             tanya="Kirim pengajuan?"
             disabled={sibuk}
             onYakin={() =>

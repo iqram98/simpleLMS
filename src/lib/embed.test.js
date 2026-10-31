@@ -24,21 +24,36 @@ test('Google Drive: folder', () => {
 
 test('Google Docs, Sheets, Slides biasa', () => {
   assert.equal(src('https://docs.google.com/document/d/1AbC/edit?tab=t.0'), 'https://docs.google.com/document/d/1AbC/preview')
-  assert.equal(src('https://docs.google.com/spreadsheets/d/1AbC/edit#gid=0'), 'https://docs.google.com/spreadsheets/d/1AbC/preview')
+  assert.equal(
+    src('https://docs.google.com/spreadsheets/d/1AbC/edit#gid=0'),
+    'https://docs.google.com/spreadsheets/d/1AbC/preview',
+  )
   assert.equal(src('https://docs.google.com/presentation/d/1AbC/edit'), 'https://docs.google.com/presentation/d/1AbC/embed')
 })
 
 test('Google Docs, Sheets, Slides yang diterbitkan ke web', () => {
-  assert.equal(src('https://docs.google.com/document/d/e/2PACX-1v/pub'), 'https://docs.google.com/document/d/e/2PACX-1v/pub?embedded=true')
-  assert.equal(src('https://docs.google.com/spreadsheets/d/e/2PACX-1v/pubhtml'), 'https://docs.google.com/spreadsheets/d/e/2PACX-1v/pubhtml?widget=true&headers=false')
+  assert.equal(
+    src('https://docs.google.com/document/d/e/2PACX-1v/pub'),
+    'https://docs.google.com/document/d/e/2PACX-1v/pub?embedded=true',
+  )
+  assert.equal(
+    src('https://docs.google.com/spreadsheets/d/e/2PACX-1v/pubhtml'),
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1v/pubhtml?widget=true&headers=false',
+  )
 })
 
 test('Google Docs akun domain sekolah (/a/domain/)', () => {
-  assert.equal(src('https://docs.google.com/a/sekolah.sch.id/document/d/1AbC/edit'), 'https://docs.google.com/document/d/1AbC/preview')
+  assert.equal(
+    src('https://docs.google.com/a/sekolah.sch.id/document/d/1AbC/edit'),
+    'https://docs.google.com/document/d/1AbC/preview',
+  )
 })
 
 test('Google Form: hanya tautan publik yang bisa di-embed', () => {
-  assert.equal(src('https://docs.google.com/forms/d/e/1FAIpQLSf/viewform'), 'https://docs.google.com/forms/d/e/1FAIpQLSf/viewform?embedded=true')
+  assert.equal(
+    src('https://docs.google.com/forms/d/e/1FAIpQLSf/viewform'),
+    'https://docs.google.com/forms/d/e/1FAIpQLSf/viewform?embedded=true',
+  )
   assert.equal(toEmbed('https://docs.google.com/forms/d/1AbC/edit'), null)
   assert.equal(toEmbed('https://forms.gle/abc123'), null)
 })
@@ -95,4 +110,12 @@ test('web app Apps Script milik domain Workspace', () => {
   assert.equal(r.jenis, 'Web app Apps Script')
   assert.equal(r.src, 'https://script.google.com/a/macros/guru.smp.belajar.id/s/AKfycbyKd_3pp-x/exec')
   assert.equal(toEmbed('https://script.google.com/a/macros/evil.com/s/abc/dev'), null)
+})
+
+test('proyek Scratch', () => {
+  const r = toEmbed('https://scratch.mit.edu/projects/123456789/')
+  assert.equal(r.jenis, 'Scratch')
+  assert.equal(r.src, 'https://scratch.mit.edu/projects/123456789/embed')
+  assert.equal(toEmbed('https://scratch.mit.edu/projects/editor/'), null)
+  assert.equal(toEmbed('https://scratch.mit.edu/users/abc/'), null)
 })

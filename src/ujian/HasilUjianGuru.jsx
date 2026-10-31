@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TombolIkon } from '../components/Ikon.jsx'
 import { Kosong, KotakGalat, Memuat } from '../components/ui.jsx'
 import { useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
@@ -6,6 +7,7 @@ import { adalahJenisSurvei, analisisButir, barisSiswa, rekapSurvei, ringkasan } 
 import { unduhCsv } from './csv.js'
 import { NAMA_TIPE } from './konstanta.js'
 import HasilUjian from './HasilUjian.jsx'
+import { NAMA_PELANGGARAN } from './pengawas.js'
 import PenilaianUraian from './PenilaianUraian.jsx'
 
 const angka = (n) => (n == null ? '-' : String(Math.round(Number(n) * 100) / 100).replace('.', ','))
@@ -34,7 +36,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
   const { data, error, memuat, muatUlang } = useMuat(async () => {
     const kelas = ambil(await supabase.from('classes').select('id,name').eq('course_id', kursusId).order('created_at'))
     const ids = kelas.map((k) => k.id)
-    const [st, soal, kunci, perc, hasil, nilai, daftar] = await Promise.all([
+    const [st, soal, kunci, perc, hasil, nilai, daftar, pelanggaran] = await Promise.all([
       supabase.from('ujian_pengaturan').select('kkm,maks_percobaan').eq('lesson_id', pelajaranId).single(),
       supabase.from('soal').select('id,type,position,prompt_text,options,points').eq('lesson_id', pelajaranId).order('position'),
       supabase.from('soal_kunci').select('soal_id,kunci,soal!inner(lesson_id)').eq('soal.lesson_id', pelajaranId),
@@ -55,8 +57,16 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
             .in('class_id', ids)
             .eq('status', 'aktif')
         : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from('percobaan_pelanggaran')
+        .select('id,percobaan_id,jenis,mulai,durasi_detik,percobaan!inner(lesson_id)')
+        .eq('percobaan.lesson_id', pelajaranId)
+        .order('mulai'),
     ])
+    const pel = {}
+    for (const v of ambil(pelanggaran)) (pel[v.percobaan_id] ??= []).push(v)
     return {
+      pelanggaran: pel,
       kelas,
       st: ambil(st),
       soal: ambil(soal),
@@ -120,6 +130,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
       ...Array.from({ length: maks }, (_, i) => `Percobaan ${i + 1}`),
       'Nilai akhir',
       'Status',
+      'Kejadian pindah tab/layar',
     ]
     const isi = baris.map((b) => [
       b.nama,
@@ -131,6 +142,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
       }),
       b.nilai == null ? '' : angka(b.nilai),
       LABEL[b.status],
+      b.selesai.reduce((n, p) => n + (data.pelanggaran[p.id]?.length ?? 0), 0),
     ])
     unduhCsv(`Nilai ${judul ?? 'ujian'} ${namaKelas}.csv`, [kepala, ...isi])
   }
@@ -199,9 +211,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
         <button type="button" className="btn kecil" onClick={unduh} disabled={baris.length === 0}>
           Unduh CSV
         </button>
-        <button type="button" className="btn kecil" onClick={muatUlang}>
-          Muat ulang
-        </button>
+        <TombolIkon ikon="muat" label="Muat ulang" onClick={muatUlang} />
       </div>
 
       {baris.length === 0 ? (
@@ -236,6 +246,11 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
                           onClick={() => setLihat(lihat === p.id ? null : p.id)}
                         >
                           {p.nomor}: {p.perlu_dinilai ? 'perlu dinilai' : angka(p.nilai)}
+                          {data.pelanggaran[p.id]?.length > 0 && (
+                            <span className="lencana-pelanggaran" title="Meninggalkan ujian">
+                              ⚠ {data.pelanggaran[p.id].length}
+                            </span>
+                          )}
                         </button>
                       ))}
                     </div>
@@ -256,6 +271,7 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
       {lihat && (
         <section className="panel" aria-label="Rincian percobaan">
           <p className="petunjuk">Jawaban {tampil.namaPer[data.percobaan.find((p) => p.id === lihat)?.user_id] ?? ''}</p>
+          <Pelanggaran daftar={data.pelanggaran[lihat] ?? []} />
           <HasilUjian key={lihat} idPercobaan={lihat} onTutup={() => setLihat(null)} />
         </section>
       )}
@@ -380,6 +396,28 @@ export default function HasilUjianGuru({ pelajaranId, kursusId, judul }) {
           ))}
         </section>
       )}
+    </div>
+  )
+}
+
+function Pelanggaran({ daftar }) {
+  if (daftar.length === 0) return <p className="petunjuk">Tidak ada catatan meninggalkan ujian.</p>
+  const jam = (iso) => new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const lama = (d) => (d == null ? 'belum kembali' : d < 60 ? `${d} detik` : `${Math.floor(d / 60)} menit ${d % 60} detik`)
+  return (
+    <div className="kolom">
+      <strong>Meninggalkan ujian ({daftar.length} kali)</strong>
+      <ul className="rekap-teks">
+        {daftar.map((v) => (
+          <li key={v.id}>
+            <span>
+              {NAMA_PELANGGARAN[v.jenis] ?? v.jenis} pukul {jam(v.mulai)}
+            </span>
+            <span className="petunjuk">Lama pergi: {lama(v.durasi_detik)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="petunjuk">Catatan ini bahan pertimbangan. Telepon masuk atau notifikasi juga bisa memicunya.</p>
     </div>
   )
 }

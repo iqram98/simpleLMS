@@ -20,7 +20,13 @@ export default function HasilUjian({ idPercobaan, onTutup, otomatis = false }) {
   const h = data
   return (
     <section className="hasil-ujian" aria-label="Hasil ujian">
-      {otomatis && <p className="info">Waktu habis, jadi jawabanmu dikumpulkan otomatis.</p>}
+      {otomatis === 'pelanggaran' && (
+        <p className="info">
+          Ujian dikumpulkan otomatis karena kamu meninggalkan ujian sampai batas yang ditetapkan guru. Jawaban yang sudah
+          tersimpan tetap dinilai.
+        </p>
+      )}
+      {otomatis && otomatis !== 'pelanggaran' && <p className="info">Waktu habis, jadi jawabanmu dikumpulkan otomatis.</p>}
       <h2>Hasil percobaan {h.nomor}</h2>
       {h.perlu_dinilai ? (
         <>
