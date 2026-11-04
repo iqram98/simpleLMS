@@ -132,7 +132,12 @@ export default function LanjutBelajar({ kelas }) {
                     {k.total > 0 ? 'Semua selesai. Buka kelas' : 'Buka kelas'}
                   </Link>
                 )}
-                <Link className="btn kecil ikon" to={`/kelas/${k.id}/forum`} aria-label={`Forum ${k.kelas}`} title="Forum kelas">
+                <Link
+                  className="btn kecil ikon"
+                  to={`/kelas/${k.id}/forum`}
+                  aria-label={`Forum ${k.kelas}`}
+                  data-tip="Forum kelas"
+                >
                   <Ikon nama="forum" />
                 </Link>
               </div>

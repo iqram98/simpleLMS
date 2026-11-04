@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { toEmbed } from '../lib/embed.js'
+import { atributGaya } from '../lib/gayaBlok.js'
 
 // Penampil teks berformat dimuat hanya bila ada blok yang memakainya.
 const TeksKaya = lazy(() => import('../editor/TeksKaya.jsx'))
@@ -19,7 +20,7 @@ function IsiTeks({ blok }) {
 export function BlokView({ blok }) {
   if (blok.type === 'text') {
     return (
-      <section className="blok">
+      <section className="blok" {...atributGaya(blok.gaya)}>
         {blok.title && <h3>{blok.title}</h3>}
         <IsiTeks blok={blok} />
       </section>
@@ -29,7 +30,7 @@ export function BlokView({ blok }) {
   if (blok.type === 'embed') {
     const embed = toEmbed(blok.url)
     return (
-      <section className="blok">
+      <section className="blok" {...atributGaya(blok.gaya)}>
         {blok.title && <h3>{blok.title}</h3>}
         {embed ? (
           <figure className="embed">
@@ -64,7 +65,7 @@ export function BlokView({ blok }) {
 
   if (blok.type === 'link') {
     return (
-      <section className="blok">
+      <section className="blok" {...atributGaya(blok.gaya)}>
         {blok.title && <h3>{blok.title}</h3>}
         <a className="btn" href={blok.url} target="_blank" rel="noopener noreferrer">
           Buka tautan ↗

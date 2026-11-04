@@ -54,7 +54,7 @@ export default function KursusEditor() {
     if (modulSekarangId) setTerbuka((t) => new Set(t).add(modulSekarangId))
   }, [modulSekarangId])
 
-  if (memuat && !data) return <Memuat />
+  if (memuat && !data) return <Memuat bentuk="halaman" />
   if (error) {
     return (
       <main className="halaman">
@@ -608,14 +608,13 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
               kelas={pratinjau ? 'utama' : ''}
               onClick={() => setPratinjau((p) => !p)}
             />
-            <button
-              type="button"
-              className={`btn kecil ${pelajaran.is_published ? '' : 'utama'}`}
+            <TombolIkon
+              ikon={pelajaran.is_published ? 'draft' : 'terbit'}
+              label={pelajaran.is_published ? 'Jadikan draft' : 'Terbitkan'}
+              kelas={pelajaran.is_published ? 'peringatan' : 'sukses'}
               disabled={sibuk}
               onClick={() => ubahPelajaran({ is_published: !pelajaran.is_published })}
-            >
-              {pelajaran.is_published ? 'Jadikan draft' : 'Terbitkan'}
-            </button>
+            />
             <MenuTitik
               ikon="⚙"
               label={ujian ? 'Aksi lain untuk ujian' : 'Aksi lain untuk pelajaran'}
@@ -696,36 +695,31 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
                     <>
                       <BlokView blok={b} />
                       <div className="alat-blok">
-                        <button
-                          type="button"
-                          className="btn kecil"
-                          aria-label="Naikkan blok"
+                        <TombolIkon
+                          ikon="naik"
+                          label="Naikkan blok"
                           disabled={sibuk || i === 0}
                           onClick={() => geserBlok(i, -1)}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn kecil"
-                          aria-label="Turunkan blok"
+                        />
+                        <TombolIkon
+                          ikon="turun"
+                          label="Turunkan blok"
                           disabled={sibuk || i === daftar.length - 1}
                           onClick={() => geserBlok(i, 1)}
-                        >
-                          ↓
-                        </button>
-                        <button
-                          type="button"
-                          className="btn kecil"
+                        />
+                        <TombolIkon
+                          ikon="pensil"
+                          label="Ubah blok"
+                          kelas="info"
+                          disabled={sibuk}
                           onClick={() => {
                             setFormBaru(false)
                             setDiubah(b)
                           }}
-                        >
-                          Ubah
-                        </button>
+                        />
                         <TombolKonfirmasi
-                          label="Hapus"
+                          ikon="sampah"
+                          label="Hapus blok"
                           tanya="Hapus blok ini?"
                           disabled={sibuk}
                           onYakin={() => hapusBlok(b.id)}

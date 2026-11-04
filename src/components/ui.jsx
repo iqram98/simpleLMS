@@ -1,11 +1,52 @@
 import { useEffect, useRef, useState } from 'react'
-import Ikon from './Ikon.jsx'
+import Ikon, { TombolIkon } from './Ikon.jsx'
+import Logo from './Logo.jsx'
 
-export function Memuat({ teks = 'Memuat…' }) {
+// Kerangka pemuatan. Muncul dengan jeda singkat (lihat .skel-wadah) agar tidak berkedip pada koneksi cepat.
+// bentuk: 'daftar' (bawaan), 'halaman', 'panel', 'baris', atau 'layar' (splash penuh).
+const Garis = ({ l = '100%', t = 14 }) => <span className="skel" style={{ width: l, height: t }} />
+
+export function Memuat({ teks = 'Memuat…', bentuk = 'daftar' }) {
+  if (bentuk === 'layar') {
+    return (
+      <div className="splash" role="status">
+        <Logo ukuran={64} kelas="denyut" />
+        <span className="sr-only">{teks}</span>
+      </div>
+    )
+  }
+  let isi
+  if (bentuk === 'baris') {
+    isi = <Garis l="40%" />
+  } else if (bentuk === 'halaman') {
+    isi = (
+      <>
+        <Garis l="45%" t={28} />
+        <Garis l="70%" />
+        <div className="skel-kisi">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="skel skel-kartu" />
+          ))}
+        </div>
+      </>
+    )
+  } else {
+    isi = (
+      <>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="skel-item">
+            <Garis l={i === 1 ? '55%' : '75%'} t={16} />
+            <Garis l="35%" t={12} />
+          </div>
+        ))}
+      </>
+    )
+  }
   return (
-    <p className="memuat" role="status">
-      {teks}
-    </p>
+    <div className={`skel-wadah ${bentuk}`} role="status" aria-busy="true">
+      {isi}
+      <span className="sr-only">{teks}</span>
+    </div>
   )
 }
 
@@ -40,9 +81,12 @@ export function LencanaStatus({ status }) {
 
 // Tombol dua langkah untuk tindakan yang tidak bisa dibatalkan.
 // Dialog bawaan browser tidak dipakai agar bekerja baik di ponsel.
-export function TombolKonfirmasi({ label, tanya = 'Yakin?', onYakin, disabled, kelas = 'bahaya' }) {
+export function TombolKonfirmasi({ label, tanya = 'Yakin?', onYakin, disabled, kelas = 'bahaya', ikon }) {
   const [tanyaAktif, setTanyaAktif] = useState(false)
   if (!tanyaAktif) {
+    if (ikon) {
+      return <TombolIkon ikon={ikon} label={label} kelas={kelas} disabled={disabled} onClick={() => setTanyaAktif(true)} />
+    }
     return (
       <button type="button" className={`btn kecil ${kelas}`} disabled={disabled} onClick={() => setTanyaAktif(true)}>
         {label}
@@ -80,15 +124,14 @@ export function UbahDiTempat({ nilai, onSimpan, label, tag: Tag = 'span', multib
         {nilai ? <Tag>{nilai}</Tag> : null}
         <button
           type="button"
-          className={nilai ? 'btn kecil ikon' : 'btn kecil'}
+          className={nilai ? 'btn kecil ikon info' : 'btn kecil'}
           aria-label={`Ubah ${label}`}
-          title={`Ubah ${label}`}
           onClick={() => {
             setIsi(nilai ?? '')
             setUbah(true)
           }}
         >
-          {nilai ? <span aria-hidden="true">✎</span> : `+ Tambah ${label}`}
+          {nilai ? <Ikon nama="pensil" /> : `+ Tambah ${label}`}
         </button>
       </span>
     )
@@ -129,13 +172,7 @@ export function TombolSalin({ teks, label = 'Salin', ikon = false }) {
     setTimeout(() => setStatus(''), 2000)
   }
   return (
-    <button
-      type="button"
-      className={`btn kecil ${ikon ? 'ikon' : ''}`}
-      onClick={salin}
-      aria-label={status || label}
-      title={status || label}
-    >
+    <button type="button" className={`btn kecil ${ikon ? 'ikon' : ''}`} onClick={salin} aria-label={status || label}>
       {ikon && !status ? <Ikon nama="salin" /> : status || label}
     </button>
   )
@@ -209,7 +246,6 @@ export function MenuTitik({ label = 'Aksi lainnya', item, disabled, ikon = '⋯'
         aria-haspopup="menu"
         aria-expanded={buka}
         aria-label={label}
-        title={label}
         disabled={disabled}
         onClick={() => (buka ? tutup() : bukaMenu())}
       >

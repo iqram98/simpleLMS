@@ -13,6 +13,16 @@ const JALUR = {
   cek: ['m5 12 5 5 9-10'],
   bukaSemua: ['m7 15 5 5 5-5', 'm7 9 5-5 5 5'],
   tutupSemua: ['m7 20 5-5 5 5', 'm7 4 5 5 5-5'],
+  sampah: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 13h10l1-13', 'M9 7V4h6v3'],
+  terbit: ['m22 2-7 20-4-9-9-4 20-7Z', 'M22 2 11 13'],
+  draft: [
+    'M3 3l18 18',
+    'M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.2',
+    'M6.5 6.6A17 17 0 0 0 2 12s3.6 7 10 7a10 10 0 0 0 4.2-.9',
+    'M9.9 9.9a3 3 0 0 0 4.2 4.2',
+  ],
+  naik: ['M12 19V5', 'm5 12 7-7 7 7'],
+  turun: ['M12 5v14', 'm19 12-7 7-7-7'],
   menu: ['M4 7h16', 'M4 12h16', 'M4 17h16'],
   tutup: ['M6 6l12 12', 'M18 6 6 18'],
 }
@@ -42,7 +52,7 @@ export default function Ikon({ nama, ukuran = 18 }) {
 // Tombol hanya ikon. `label` wajib: dipakai sebagai nama untuk pembaca layar dan tooltip.
 export function TombolIkon({ ikon, label, kelas = '', ...sisa }) {
   return (
-    <button type="button" className={`btn kecil ikon ${kelas}`.trim()} aria-label={label} title={label} {...sisa}>
+    <button type="button" className={`btn kecil ikon ${kelas}`.trim()} aria-label={label} {...sisa}>
       <Ikon nama={ikon} />
     </button>
   )
@@ -51,7 +61,7 @@ export function TombolIkon({ ikon, label, kelas = '', ...sisa }) {
 // Tautan hanya ikon (misalnya "Beranda").
 export function TautanIkon({ ikon, label, kelas = '', komponen: Komponen, ...sisa }) {
   return (
-    <Komponen className={`btn kecil ikon ${kelas}`.trim()} aria-label={label} title={label} {...sisa}>
+    <Komponen className={`btn kecil ikon ${kelas}`.trim()} aria-label={label} {...sisa}>
       <Ikon nama={ikon} />
     </Komponen>
   )

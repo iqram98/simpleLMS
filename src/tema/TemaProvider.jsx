@@ -44,10 +44,7 @@ export function TemaProvider({ children }) {
   const [gelapSistem, setGelapSistem] = useState(sistemGelap)
 
   const muat = useCallback(async () => {
-    const { data } = await supabase
-      .from('pengaturan_situs')
-      .select('nama_situs,warna_utama,mode_bawaan,logo_url')
-      .maybeSingle()
+    const { data } = await supabase.from('pengaturan_situs').select('nama_situs,warna_utama,mode_bawaan,logo_url').maybeSingle()
     if (data && warnaValid(data.warna_utama)) {
       setSitus(data)
       tulis(KUNCI_CACHE, JSON.stringify(data))
@@ -76,6 +73,8 @@ export function TemaProvider({ children }) {
     document.title = situs.nama_situs
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) meta.content = gelap ? '#12151c' : '#ffffff'
+    const ikon = document.querySelector('link[rel="icon"]')
+    if (ikon) ikon.href = situs.logo_url || '/favicon.png'
   }, [situs, gelap])
 
   const ganti = useCallback(() => {

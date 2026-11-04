@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext.jsx'
 import { Memuat, KotakGalat } from '../components/ui.jsx'
 import { pesanError } from '../lib/supabase.js'
 import { useTema } from '../tema/TemaProvider.jsx'
+import { LogoSitus } from '../components/Logo.jsx'
 
 export default function Masuk() {
   const { sesi, memuat, masukGoogle } = useAuth()
@@ -11,7 +12,7 @@ export default function Masuk() {
   const [galat, setGalat] = useState('')
   const [sibuk, setSibuk] = useState(false)
 
-  if (memuat) return <Memuat />
+  if (memuat) return <Memuat bentuk="layar" />
   if (sesi) return <Navigate to="/" replace />
 
   const masuk = async () => {
@@ -28,16 +29,14 @@ export default function Masuk() {
   return (
     <main className="tengah">
       <div className="kartu-masuk">
-        {situs.logo_url && <img className="logo-besar" src={situs.logo_url} alt="" onError={(e) => (e.currentTarget.hidden = true)} />}
+        <LogoSitus url={situs.logo_url} ukuran={56} kelas="logo-besar" />
         <h1>{situs.nama_situs}</h1>
         <p>Masuk dengan akun Google untuk membuka kelasmu.</p>
         <KotakGalat galat={galat} />
         <button type="button" className="btn utama" onClick={masuk} disabled={sibuk}>
           {sibuk ? 'Membuka Google…' : 'Masuk dengan Google'}
         </button>
-        <p className="petunjuk">
-          Pertama kali masuk, akunmu dibuat otomatis. Setelah itu masukkan kode kelas dari gurumu.
-        </p>
+        <p className="petunjuk">Pertama kali masuk, akunmu dibuat otomatis. Setelah itu masukkan kode kelas dari gurumu.</p>
       </div>
     </main>
   )

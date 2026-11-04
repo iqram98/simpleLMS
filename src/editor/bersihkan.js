@@ -4,13 +4,54 @@
 // tautan serta gambar dipaksa https.
 
 export const WARNA = ['merah', 'biru', 'hijau', 'oranye', 'ungu', 'abu']
+// Warna latar sorotan teks.
+export const SOROT = ['kuning', 'hijau', 'biru', 'merah', 'ungu']
+// Kotak bergaya: nama => judul bawaan. Warna dan ikon diatur di CSS.
+export const KOTAK = {
+  guru: 'Catatan Guru',
+  tips: 'Tips',
+  awas: 'Perhatian',
+  contoh: 'Contoh',
+  baca: 'Baca Selengkapnya',
+  tonton: 'Tonton Video',
+  info: 'Info',
+}
+export const PEMBATAS = ['tipis', 'putus', 'titik', 'ganda', 'tebal', 'gradasi']
+const ISI_KOTAK = new Set([
+  'paragraph',
+  'heading',
+  'bulletList',
+  'orderedList',
+  'blockquote',
+  'horizontalRule',
+  'table',
+  'blockMath',
+  'image',
+  'pita',
+])
 
 const SIMPUL = new Set([
-  'doc', 'paragraph', 'text', 'heading', 'bulletList', 'orderedList', 'listItem',
-  'blockquote', 'horizontalRule', 'hardBreak', 'table', 'tableRow', 'tableHeader',
-  'tableCell', 'image', 'inlineMath', 'blockMath',
+  'doc',
+  'paragraph',
+  'text',
+  'heading',
+  'bulletList',
+  'orderedList',
+  'listItem',
+  'blockquote',
+  'horizontalRule',
+  'hardBreak',
+  'table',
+  'tableRow',
+  'tableHeader',
+  'tableCell',
+  'image',
+  'inlineMath',
+  'blockMath',
+  'kotak',
+  'pita',
 ])
-const TANDA = new Set(['bold', 'italic', 'underline', 'strike', 'link', 'kecil', 'warna'])
+const TANDA = new Set(['bold', 'italic', 'underline', 'strike', 'link', 'kecil', 'warna', 'sorot'])
 const BATAS_DALAM = 40
 const BATAS_LATEX = 2000
 
@@ -27,6 +68,9 @@ function bersihkanTanda(tanda) {
     } else if (t.type === 'warna') {
       if (!WARNA.includes(t.attrs?.nama)) continue
       hasil.push({ type: 'warna', attrs: { nama: t.attrs.nama } })
+    } else if (t.type === 'sorot') {
+      if (!SOROT.includes(t.attrs?.nama)) continue
+      hasil.push({ type: 'sorot', attrs: { nama: t.attrs.nama } })
     } else {
       hasil.push({ type: t.type })
     }
@@ -34,8 +78,14 @@ function bersihkanTanda(tanda) {
   return hasil.length ? hasil : undefined
 }
 
-function bersihkanSimpul(n, dalam) {
+function bersihkanSimpul(n, dalam, dalamKotak = false) {
   if (!n || typeof n !== 'object' || !SIMPUL.has(n.type) || dalam > BATAS_DALAM) return null
+  if (
+    dalamKotak &&
+    !ISI_KOTAK.has(n.type) &&
+    !['text', 'listItem', 'tableRow', 'tableHeader', 'tableCell', 'hardBreak', 'inlineMath'].includes(n.type)
+  )
+    return null
   const o = { type: n.type }
 
   if (n.type === 'text') {
@@ -45,7 +95,22 @@ function bersihkanSimpul(n, dalam) {
     if (tanda) o.marks = tanda
     return o
   }
-  if (n.type === 'heading') {
+  if (n.type === 'kotak') {
+    const gaya = Object.hasOwn(KOTAK, n.attrs?.gaya) ? n.attrs.gaya : 'info'
+    const judul = typeof n.attrs?.judul === 'string' ? n.attrs.judul.trim().slice(0, 80) : ''
+    o.attrs = { gaya, judul }
+    const isi = (Array.isArray(n.content) ? n.content : []).map((c) => bersihkanSimpul(c, dalam + 1, true)).filter(Boolean)
+    o.content = isi.length ? isi : [{ type: 'paragraph' }]
+    return o
+  } else if (n.type === 'pita') {
+    o.attrs = { warna: WARNA.includes(n.attrs?.warna) ? n.attrs.warna : 'hijau' }
+  } else if (n.type === 'horizontalRule') {
+    o.attrs = {
+      gaya: PEMBATAS.includes(n.attrs?.gaya) ? n.attrs.gaya : 'tipis',
+      warna: WARNA.includes(n.attrs?.warna) ? n.attrs.warna : 'abu',
+    }
+    return o
+  } else if (n.type === 'heading') {
     o.attrs = { level: n.attrs?.level === 3 ? 3 : 2 }
   } else if (n.type === 'image') {
     if (!httpsSaja(n.attrs?.src)) return null
@@ -67,10 +132,10 @@ function bersihkanSimpul(n, dalam) {
       rowspan: Number.isInteger(rs) && rs >= 1 && rs <= 100 ? rs : 1,
     }
   }
-  if (n.type === 'horizontalRule' || n.type === 'hardBreak') return o
+  if (n.type === 'hardBreak') return o
 
   if (Array.isArray(n.content)) {
-    const isi = n.content.map((c) => bersihkanSimpul(c, dalam + 1)).filter(Boolean)
+    const isi = n.content.map((c) => bersihkanSimpul(c, dalam + 1, dalamKotak)).filter(Boolean)
     if (isi.length) o.content = isi
   }
   return o
@@ -95,11 +160,14 @@ export function teksPolos(doc) {
     else if (n.type === 'hardBreak') potong.push('\n')
     if (Array.isArray(n.content)) {
       n.content.forEach(jalan)
-      if (['paragraph', 'heading', 'listItem', 'tableRow', 'blockquote'].includes(n.type)) potong.push('\n')
+      if (['paragraph', 'heading', 'listItem', 'tableRow', 'blockquote', 'pita'].includes(n.type)) potong.push('\n')
     }
   }
   jalan(doc)
-  return potong.join('').replace(/\n{3,}/g, '\n\n').trim()
+  return potong
+    .join('')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 // Mengubah teks polos lama (dengan baris baru) menjadi dokumen.

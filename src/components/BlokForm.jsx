@@ -1,5 +1,7 @@
 import { lazy, Suspense, useState } from 'react'
 import { bersihkan, dariTeksPolos, teksPolos } from '../editor/bersihkan.js'
+import { BINGKAI, NAMA_BINGKAI, NAMA_WARNA_BLOK, WARNA_BLOK, atributGaya, bersihkanGaya } from '../lib/gayaBlok.js'
+import PanelDrive from '../drive/PanelDrive.jsx'
 import { toEmbed, urlHttpsValid } from '../lib/embed.js'
 import { KotakGalat, Memuat } from './ui.jsx'
 
@@ -22,6 +24,7 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
   const [url, setUrl] = useState(awal?.url ?? '')
   const [dokumen, setDokumen] = useState(() => bersihkan(awal?.body_rich) ?? dariTeksPolos(awal?.body_text))
   const [tinggi, setTinggi] = useState(awal?.embed_height ? String(awal.embed_height) : '')
+  const [gaya, setGaya] = useState(() => bersihkanGaya(awal?.gaya) ?? {})
   const [galat, setGalat] = useState('')
 
   const butuhUrl = tipe === 'embed' || tipe === 'link'
@@ -46,6 +49,7 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
     setGalat('')
     await onSimpan({
       embed_height: tipe === 'embed' ? th : null,
+      gaya: tipe === 'note' ? null : bersihkanGaya(gaya),
       type: tipe,
       title: judul.trim() || null,
       url: bolehUrl && u ? u : null,
@@ -82,6 +86,15 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
             placeholder="https://"
             autoComplete="off"
           />
+          {tipe !== 'note' && (
+            <PanelDrive
+              onPilih={(f) => {
+                setUrl(f.urlBuka)
+                setJudul((j) => j || f.nama)
+                setGalat(f.peringatan ?? '')
+              }}
+            />
+          )}
           {tipe === 'embed' && (
             <span className="petunjuk">
               {!url.trim()
@@ -118,10 +131,56 @@ export default function BlokForm({ awal, onSimpan, onBatal, sibuk }) {
           <span id="blok-isi-label" className="label-palsu">
             {tipe === 'note' ? 'Catatan' : 'Isi teks'}
           </span>
-          <Suspense fallback={<Memuat teks="Memuat editor…" />}>
+          <Suspense fallback={<Memuat teks="Memuat editor…" bentuk="baris" />}>
             <EditorTeks nilai={dokumen} onChange={setDokumen} label={tipe === 'note' ? 'Catatan' : 'Isi teks'} />
           </Suspense>
         </div>
+      )}
+      {tipe !== 'note' && (
+        <fieldset className="gaya-blok">
+          <legend>Tampilan blok (boleh dikosongkan)</legend>
+          <div className="baris">
+            <label className="baris rapat">
+              <span className="kecil-teks">Warna</span>
+              <select value={gaya.warna ?? ''} onChange={(e) => setGaya({ ...gaya, warna: e.target.value || undefined })}>
+                <option value="">Biru (bawaan)</option>
+                {WARNA_BLOK.filter((w) => w !== 'biru').map((w) => (
+                  <option key={w} value={w}>
+                    {NAMA_WARNA_BLOK[w]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="baris rapat">
+              <input
+                type="checkbox"
+                checked={Boolean(gaya.latar)}
+                onChange={(e) => setGaya({ ...gaya, latar: e.target.checked })}
+              />
+              Latar berwarna
+            </label>
+            <label className="baris rapat">
+              <span className="kecil-teks">Bingkai</span>
+              <select value={gaya.bingkai ?? ''} onChange={(e) => setGaya({ ...gaya, bingkai: e.target.value || undefined })}>
+                <option value="">Tanpa bingkai</option>
+                {BINGKAI.map((b) => (
+                  <option key={b} value={b}>
+                    {NAMA_BINGKAI[b]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {gaya.bingkai === 'judul' && !judul.trim() && (
+            <p className="petunjuk">Pita judul memakai judul blok, jadi isi judul blok di atas.</p>
+          )}
+          {bersihkanGaya(gaya) && (
+            <div className="blok contoh-gaya" {...atributGaya(gaya)}>
+              <h3>{judul.trim() || 'Contoh judul'}</h3>
+              <p className="kecil-teks">Begini tampilan blok untuk siswa.</p>
+            </div>
+          )}
+        </fieldset>
       )}
       <KotakGalat galat={galat} />
       <div className="baris">

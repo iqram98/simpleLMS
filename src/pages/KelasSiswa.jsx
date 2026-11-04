@@ -89,7 +89,7 @@ export default function KelasSiswa() {
     if (modulSekarangId) setTerbuka((t) => new Set(t).add(modulSekarangId))
   }, [modulSekarangId])
 
-  if (kelas.memuat && !kelas.data) return <Memuat />
+  if (kelas.memuat && !kelas.data) return <Memuat bentuk="halaman" />
   if (kelas.error) {
     return (
       <main className="halaman">

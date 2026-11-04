@@ -32,7 +32,7 @@ export default function Admin() {
     return data.pengguna.filter((p) => `${p.full_name ?? ''} ${p.email} ${p.nisn ?? ''} ${p.nip ?? ''}`.toLowerCase().includes(k))
   }, [data, cari])
 
-  if (memuat && !data) return <Memuat />
+  if (memuat && !data) return <Memuat bentuk="halaman" />
   if (error) {
     return (
       <main className="halaman">
@@ -83,7 +83,12 @@ export default function Admin() {
                     <td>{p.email}</td>
                     <td>
                       <div className="baris rapat">
-                        <button type="button" className="btn kecil utama" disabled={sibuk} onClick={() => atur(p, { peran: 'guru' })}>
+                        <button
+                          type="button"
+                          className="btn kecil utama"
+                          disabled={sibuk}
+                          onClick={() => atur(p, { peran: 'guru' })}
+                        >
                           Setujui
                         </button>
                         <button type="button" className="btn kecil" disabled={sibuk} onClick={() => atur(p, { peran: 'siswa' })}>
@@ -149,16 +154,31 @@ export default function Admin() {
                               onYakin={() => atur(p, { peran: 'siswa', admin: false })}
                             />
                           ) : (
-                            <button type="button" className="btn kecil" disabled={sibuk} onClick={() => atur(p, { peran: 'guru' })}>
+                            <button
+                              type="button"
+                              className="btn kecil"
+                              disabled={sibuk}
+                              onClick={() => atur(p, { peran: 'guru' })}
+                            >
                               Jadikan guru
                             </button>
                           )}
                           {p.role === 'guru' && (
-                            <button type="button" className="btn kecil" disabled={sibuk} onClick={() => atur(p, { admin: !p.is_admin })}>
+                            <button
+                              type="button"
+                              className="btn kecil"
+                              disabled={sibuk}
+                              onClick={() => atur(p, { admin: !p.is_admin })}
+                            >
                               {p.is_admin ? 'Cabut admin' : 'Jadikan admin'}
                             </button>
                           )}
-                          <button type="button" className="btn kecil" disabled={sibuk} onClick={() => atur(p, { aktif: !p.is_active })}>
+                          <button
+                            type="button"
+                            className="btn kecil"
+                            disabled={sibuk}
+                            onClick={() => atur(p, { aktif: !p.is_active })}
+                          >
                             {p.is_active ? 'Nonaktifkan' : 'Aktifkan'}
                           </button>
                         </div>

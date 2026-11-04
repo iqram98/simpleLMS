@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext.jsx'
 import { useTema } from '../tema/TemaProvider.jsx'
+import { LogoSitus } from './Logo.jsx'
 
 // Di layar kecil tabel menjadi kartu. Label tiap kolom diambil dari judul
 // kolomnya, supaya setiap halaman tidak perlu menuliskannya sendiri.
@@ -25,7 +26,16 @@ function Ikon({ gelap }) {
       <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    >
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </svg>
@@ -33,7 +43,10 @@ function Ikon({ gelap }) {
 }
 
 function inisial(nama) {
-  const kata = String(nama ?? '').trim().split(/\s+/).filter(Boolean)
+  const kata = String(nama ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
   if (!kata.length) return '?'
   return (kata[0][0] + (kata.length > 1 ? kata[kata.length - 1][0] : '')).toUpperCase()
 }
@@ -81,7 +94,7 @@ export default function Layout() {
     <>
       <header className="atas">
         <NavLink to="/" className="merek">
-          {situs.logo_url && <img src={situs.logo_url} alt="" onError={(e) => (e.currentTarget.hidden = true)} />}
+          <LogoSitus url={situs.logo_url} ukuran={32} />
           <span>{situs.nama_situs}</span>
         </NavLink>
         <button
@@ -101,13 +114,7 @@ export default function Layout() {
             {adalahAdmin && <NavLink to="/admin">Admin</NavLink>}
           </div>
           <div className="nav-alat">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={gelap}
-              className="saklar"
-              onClick={ganti}
-            >
+            <button type="button" role="switch" aria-checked={gelap} className="saklar" onClick={ganti}>
               <span className="saklar-teks">Mode gelap</span>
               <span className="saklar-jalur" aria-hidden="true">
                 <span className="saklar-bulat">

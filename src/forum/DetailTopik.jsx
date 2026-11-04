@@ -63,7 +63,7 @@ export default function DetailTopik({ topikId, kelasId, kursusId, uid, kelola })
     )
   }, [ubah === 'topik'])
 
-  if (memuat && !data) return <Memuat />
+  if (memuat && !data) return <Memuat bentuk="halaman" />
   if (error) return <KotakGalat galat={pesanError(error)} />
   if (!data) return <Kosong>Topik tidak ditemukan atau sudah dihapus.</Kosong>
 

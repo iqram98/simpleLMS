@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext.jsx'
 import Layout from './components/Layout.jsx'
+import Tooltip from './components/Tooltip.jsx'
 import { Memuat } from './components/ui.jsx'
 import Masuk from './pages/Masuk.jsx'
 import Profil from './pages/Profil.jsx'
@@ -16,7 +17,7 @@ function Terlindungi() {
   const { sesi, profil, galatProfil, memuat, keluar } = useAuth()
   const lokasi = useLocation()
 
-  if (memuat) return <Memuat />
+  if (memuat) return <Memuat bentuk="layar" />
   if (!sesi) return <Navigate to="/masuk" replace />
 
   if (!profil) {
@@ -59,24 +60,27 @@ function HanyaAdmin() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/masuk" element={<Masuk />} />
-      <Route element={<Terlindungi />}>
-        <Route path="/profil" element={<Profil />} />
-        <Route element={<Layout />}>
-          <Route path="/" element={<Beranda />} />
-          <Route path="/kelas/:kelasId/forum/:topikId?" element={<Forum />} />
-          <Route path="/kelas/:kelasId/:pelajaranId?" element={<KelasSiswa />} />
-          <Route element={<HanyaGuru />}>
-            <Route path="/kursus/:kursusId/:pelajaranId?" element={<KursusEditor />} />
-            <Route path="/kelola/:kelasId" element={<KelolaKelas />} />
-          </Route>
-          <Route element={<HanyaAdmin />}>
-            <Route path="/admin" element={<Admin />} />
+    <>
+      <Tooltip />
+      <Routes>
+        <Route path="/masuk" element={<Masuk />} />
+        <Route element={<Terlindungi />}>
+          <Route path="/profil" element={<Profil />} />
+          <Route element={<Layout />}>
+            <Route path="/" element={<Beranda />} />
+            <Route path="/kelas/:kelasId/forum/:topikId?" element={<Forum />} />
+            <Route path="/kelas/:kelasId/:pelajaranId?" element={<KelasSiswa />} />
+            <Route element={<HanyaGuru />}>
+              <Route path="/kursus/:kursusId/:pelajaranId?" element={<KursusEditor />} />
+              <Route path="/kelola/:kelasId" element={<KelolaKelas />} />
+            </Route>
+            <Route element={<HanyaAdmin />}>
+              <Route path="/admin" element={<Admin />} />
+            </Route>
           </Route>
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }

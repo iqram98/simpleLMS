@@ -22,7 +22,7 @@ const idKanan = (daftar) => {
 
 function Editor({ nilai, onChange, label }) {
   return (
-    <Suspense fallback={<Memuat teks="Memuat…" />}>
+    <Suspense fallback={<Memuat teks="Memuat…" bentuk="baris" />}>
       <EditorTeks ringkas nilai={nilai} onChange={onChange} label={label} />
     </Suspense>
   )

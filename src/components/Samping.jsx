@@ -33,7 +33,6 @@ export function TombolLipat({ lipat, onUbah, id, nama }) {
       aria-expanded={!lipat}
       aria-controls={id}
       aria-label={label}
-      title={label}
       onClick={() => onUbah(!lipat)}
     >
       <Ikon nama={lipat ? 'bukaPanel' : 'lipatPanel'} />
@@ -50,18 +49,11 @@ export function Rail({ lipat, onUbah, id, nama, item }) {
         const isi = it.ikon ? <Ikon nama={it.ikon} /> : <span aria-hidden="true">{it.teks}</span>
         const kelas = `rail-item ${it.aktif ? 'aktif' : ''} ${it.selesai ? 'selesai' : ''}`
         return it.to ? (
-          <Link
-            key={it.kunci}
-            to={it.to}
-            className={kelas}
-            aria-label={it.label}
-            title={it.label}
-            aria-current={it.aktif ? 'page' : undefined}
-          >
+          <Link key={it.kunci} to={it.to} className={kelas} aria-label={it.label} aria-current={it.aktif ? 'page' : undefined}>
             {isi}
           </Link>
         ) : (
-          <button key={it.kunci} type="button" className={kelas} aria-label={it.label} title={it.label} onClick={it.onKlik}>
+          <button key={it.kunci} type="button" className={kelas} aria-label={it.label} onClick={it.onKlik}>
             {isi}
           </button>
         )

@@ -19,7 +19,7 @@ export default function Forum() {
     return { kelas, kelola: adalahAdmin || kelas.courses?.owner_id === uid }
   }, [kelasId, uid, adalahAdmin])
 
-  if (memuat && !data) return <Memuat />
+  if (memuat && !data) return <Memuat bentuk="halaman" />
   if (error) {
     return (
       <main className="halaman">

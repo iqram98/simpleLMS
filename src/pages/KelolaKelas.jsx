@@ -51,7 +51,7 @@ export default function KelolaKelas() {
     }
   }, [kelasId])
 
-  if (memuat && !data) return <Memuat />
+  if (memuat && !data) return <Memuat bentuk="halaman" />
   if (error) {
     return (
       <main className="halaman">

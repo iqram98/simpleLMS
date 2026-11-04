@@ -1,7 +1,8 @@
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import katex from 'katex'
 import { useMemo, useState } from 'react'
-import { bersihkan, WARNA } from './bersihkan.js'
+import PanelDrive from '../drive/PanelDrive.jsx'
+import { bersihkan, KOTAK, PEMBATAS, SOROT, WARNA } from './bersihkan.js'
 import { buatEkstensi } from './ekstensi.js'
 
 const CONTOH_RUMUS = [
@@ -19,6 +20,15 @@ const CONTOH_RUMUS = [
   ['±', '\\pm '],
 ]
 const NAMA_WARNA = { merah: 'Merah', biru: 'Biru', hijau: 'Hijau', oranye: 'Oranye', ungu: 'Ungu', abu: 'Abu-abu' }
+const NAMA_SOROT = { kuning: 'Kuning', hijau: 'Hijau', biru: 'Biru', merah: 'Merah muda', ungu: 'Ungu' }
+const NAMA_PEMBATAS = {
+  tipis: 'Garis tipis',
+  putus: 'Garis putus-putus',
+  titik: 'Garis titik-titik',
+  ganda: 'Garis ganda',
+  tebal: 'Garis tebal',
+  gradasi: 'Garis pudar',
+}
 
 function Tombol({ aktif, label, onClick, disabled, children }) {
   return (
@@ -26,7 +36,7 @@ function Tombol({ aktif, label, onClick, disabled, children }) {
       type="button"
       className={`alat-tombol ${aktif ? 'aktif' : ''}`}
       aria-label={label}
-      title={label}
+      data-tip={label}
       aria-pressed={aktif === undefined ? undefined : Boolean(aktif)}
       disabled={disabled}
       onMouseDown={(e) => e.preventDefault()}
@@ -41,7 +51,13 @@ function PratinjauRumus({ latex, blok }) {
   const html = useMemo(() => {
     if (!latex.trim()) return ''
     try {
-      return katex.renderToString(latex, { throwOnError: false, displayMode: blok, strict: 'ignore', maxSize: 20, maxExpand: 200 })
+      return katex.renderToString(latex, {
+        throwOnError: false,
+        displayMode: blok,
+        strict: 'ignore',
+        maxSize: 20,
+        maxExpand: 200,
+      })
     } catch {
       return ''
     }
@@ -65,7 +81,14 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
   const editor = useEditor({
     extensions: ekstensi,
     content: bersihkan(nilai),
-    editorProps: { attributes: { class: `rich rich-sunting${ringkas ? ' rich-ringkas' : ''}`, role: 'textbox', 'aria-multiline': 'true', 'aria-label': label } },
+    editorProps: {
+      attributes: {
+        class: `rich rich-sunting${ringkas ? ' rich-ringkas' : ''}`,
+        role: 'textbox',
+        'aria-multiline': 'true',
+        'aria-label': label,
+      },
+    },
     onUpdate: ({ editor: e }) => onChange(e.getJSON()),
   })
 
@@ -83,8 +106,20 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
         kutip: e.isActive('blockquote'),
         link: e.isActive('link'),
         tabel: e.isActive('table'),
-        gaya: e.isActive('heading', { level: 2 }) ? 'h2' : e.isActive('heading', { level: 3 }) ? 'h3' : 'p',
+        gaya: e.isActive('pita')
+          ? 'pita'
+          : e.isActive('heading', { level: 2 })
+            ? 'h2'
+            : e.isActive('heading', { level: 3 })
+              ? 'h3'
+              : 'p',
         warna: WARNA.find((w) => e.isActive('warna', { nama: w })) ?? '',
+        sorot: SOROT.find((w) => e.isActive('sorot', { nama: w })) ?? '',
+        kotak: e.isActive('kotak') ? e.getAttributes('kotak').gaya : '',
+        judulKotak: e.isActive('kotak') ? (e.getAttributes('kotak').judul ?? '') : '',
+        pita: e.isActive('pita') ? e.getAttributes('pita').warna : '',
+        pembatas: e.isActive('horizontalRule') ? (e.getAttributes('horizontalRule').gaya ?? 'tipis') : '',
+        warnaPembatas: e.isActive('horizontalRule') ? (e.getAttributes('horizontalRule').warna ?? 'abu') : '',
         undo: e.can().undo(),
         redo: e.can().redo(),
       },
@@ -94,11 +129,29 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
 
   const ubahGaya = (v) => {
     if (v === 'p') c().setParagraph().run()
-    else c().setHeading({ level: v === 'h2' ? 2 : 3 }).run()
+    else if (v === 'pita') c().setPita('hijau').run()
+    else
+      c()
+        .setHeading({ level: v === 'h2' ? 2 : 3 })
+        .run()
   }
   const ubahWarna = (v) => {
     if (!v) c().unsetMark('warna').run()
     else c().setMark('warna', { nama: v }).run()
+  }
+
+  const ubahSorot = (v) => {
+    if (!v) c().unsetMark('sorot').run()
+    else c().setMark('sorot', { nama: v }).run()
+  }
+  const sisipPembatas = (gaya) => {
+    if (gaya)
+      c()
+        .setHorizontalRule({ gaya, warna: gaya === 'tipis' ? 'abu' : 'biru' })
+        .run()
+  }
+  const ubahKotak = (gaya) => {
+    if (gaya) c().setKotak(gaya).run()
   }
 
   const bukaTautan = () => setPanel({ jenis: 'tautan', url: editor.getAttributes('link').href ?? '' })
@@ -142,6 +195,7 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
             <option value="p">Teks normal</option>
             <option value="h2">Judul besar</option>
             <option value="h3">Judul kecil</option>
+            <option value="pita">Pita judul berwarna</option>
           </select>
         )}
         <Tombol label="Tebal" aktif={s.bold} onClick={() => c().toggleBold().run()}>
@@ -169,6 +223,14 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
                 </option>
               ))}
             </select>
+            <select aria-label="Sorot teks" value={s.sorot} onChange={(e) => ubahSorot(e.target.value)}>
+              <option value="">Tanpa sorot</option>
+              {SOROT.map((w) => (
+                <option key={w} value={w}>
+                  Sorot {NAMA_SOROT[w]}
+                </option>
+              ))}
+            </select>
             <span className="alat-pemisah" aria-hidden="true" />
             <Tombol label="Daftar poin" aktif={s.bullet} onClick={() => c().toggleBulletList().run()}>
               • ―
@@ -179,9 +241,22 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
             <Tombol label="Kutipan" aktif={s.kutip} onClick={() => c().toggleBlockquote().run()}>
               ❝
             </Tombol>
-            <Tombol label="Garis pemisah" onClick={() => c().setHorizontalRule().run()}>
-              ―
-            </Tombol>
+            <select aria-label="Sisipkan pembatas" value="" onChange={(e) => sisipPembatas(e.target.value)}>
+              <option value="">― Pembatas</option>
+              {PEMBATAS.map((g) => (
+                <option key={g} value={g}>
+                  {NAMA_PEMBATAS[g]}
+                </option>
+              ))}
+            </select>
+            <select aria-label="Kotak bergaya" value={s.kotak} onChange={(e) => ubahKotak(e.target.value)}>
+              <option value="">▣ Kotak bergaya</option>
+              {Object.entries(KOTAK).map(([k, nama]) => (
+                <option key={k} value={k}>
+                  {nama}
+                </option>
+              ))}
+            </select>
             <span className="alat-pemisah" aria-hidden="true" />
             <Tombol label="Tautan" aktif={s.link} onClick={bukaTautan}>
               🔗
@@ -208,6 +283,63 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
         </Tombol>
       </div>
 
+      {!ringkas && (s.kotak || s.pita || s.pembatas) && (
+        <div className="alat-editor alat-tabel" role="toolbar" aria-label="Atur gaya">
+          {s.kotak && (
+            <>
+              <label className="baris rapat">
+                <span className="kecil-teks">Judul kotak</span>
+                <input
+                  value={s.judulKotak}
+                  maxLength={80}
+                  placeholder={KOTAK[s.kotak]}
+                  onChange={(e) => editor.commands.aturJudulKotak(e.target.value)}
+                />
+              </label>
+              <button type="button" className="btn kecil bahaya" onClick={() => c().lepasKotak().run()}>
+                Lepas kotak
+              </button>
+            </>
+          )}
+          {s.pita && (
+            <label className="baris rapat">
+              <span className="kecil-teks">Warna pita</span>
+              <select value={s.pita} onChange={(e) => c().setPita(e.target.value).run()}>
+                {WARNA.map((w) => (
+                  <option key={w} value={w}>
+                    {NAMA_WARNA[w]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {s.pembatas && (
+            <>
+              <label className="baris rapat">
+                <span className="kecil-teks">Gaya</span>
+                <select value={s.pembatas} onChange={(e) => c().aturPembatas({ gaya: e.target.value }).run()}>
+                  {PEMBATAS.map((g) => (
+                    <option key={g} value={g}>
+                      {NAMA_PEMBATAS[g]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="baris rapat">
+                <span className="kecil-teks">Warna</span>
+                <select value={s.warnaPembatas} onChange={(e) => c().aturPembatas({ warna: e.target.value }).run()}>
+                  {WARNA.map((w) => (
+                    <option key={w} value={w}>
+                      {NAMA_WARNA[w]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+        </div>
+      )}
+
       {s.tabel && (
         <div className="alat-editor alat-tabel" role="toolbar" aria-label="Atur tabel">
           <button type="button" className="btn kecil" onClick={() => c().addRowAfter().run()}>
@@ -233,54 +365,110 @@ export default function EditorTeks({ nilai, onChange, label = 'Isi teks', ringka
           {panel.jenis === 'tautan' && (
             <div className="kolom">
               <label htmlFor="ed-url">Link (kosongkan untuk melepas tautan)</label>
-              <input id="ed-url" type="url" value={panel.url} placeholder="https://" onChange={(e) => setPanel({ ...panel, url: e.target.value })} autoFocus />
+              <input
+                id="ed-url"
+                type="url"
+                value={panel.url}
+                placeholder="https://"
+                onChange={(e) => setPanel({ ...panel, url: e.target.value })}
+                autoFocus
+              />
             </div>
           )}
           {panel.jenis === 'gambar' && (
             <>
               <div className="kolom">
                 <label htmlFor="ed-gambar">Link gambar</label>
-                <input id="ed-gambar" type="url" value={panel.url} placeholder="https://" onChange={(e) => setPanel({ ...panel, url: e.target.value })} autoFocus />
+                <input
+                  id="ed-gambar"
+                  type="url"
+                  value={panel.url}
+                  placeholder="https://"
+                  onChange={(e) => setPanel({ ...panel, url: e.target.value })}
+                  autoFocus
+                />
               </div>
               <div className="kolom">
                 <label htmlFor="ed-alt">Deskripsi gambar (untuk pembaca layar)</label>
                 <input id="ed-alt" value={panel.alt} onChange={(e) => setPanel({ ...panel, alt: e.target.value })} />
               </div>
-              <p className="petunjuk">Gambar dari Google Drive perlu dibagikan "Siapa saja yang memiliki link". Bila tidak tampil, pakai alamat gambar langsung dari situs penyimpan gambar.</p>
+              <PanelDrive
+                terima="gambar"
+                onPilih={(f) =>
+                  setPanel((pn) => ({ ...pn, url: f.urlGambar, alt: pn.alt || f.nama, catatan: f.peringatan ?? '' }))
+                }
+              />
+              {panel.catatan && <p className="petunjuk">{panel.catatan}</p>}
+              <p className="petunjuk">
+                Gambar dari Google Drive perlu dibagikan "Siapa saja yang memiliki link". Bila tidak tampil, pakai alamat gambar
+                langsung dari situs penyimpan gambar.
+              </p>
             </>
           )}
           {panel.jenis === 'rumus' && (
             <>
               <div className="baris">
                 <label className="baris rapat">
-                  <input type="radio" name="jenis-rumus" checked={!panel.blok} onChange={() => setPanel({ ...panel, blok: false })} />
+                  <input
+                    type="radio"
+                    name="jenis-rumus"
+                    checked={!panel.blok}
+                    onChange={() => setPanel({ ...panel, blok: false })}
+                  />
                   Di dalam kalimat
                 </label>
                 <label className="baris rapat">
-                  <input type="radio" name="jenis-rumus" checked={panel.blok} onChange={() => setPanel({ ...panel, blok: true })} />
+                  <input
+                    type="radio"
+                    name="jenis-rumus"
+                    checked={panel.blok}
+                    onChange={() => setPanel({ ...panel, blok: true })}
+                  />
                   Baris sendiri
                 </label>
               </div>
               <div className="baris rapat" aria-label="Sisipan cepat">
                 {CONTOH_RUMUS.map(([nama, kode]) => (
-                  <button key={nama} type="button" className="btn kecil" onClick={() => setPanel({ ...panel, latex: panel.latex + kode })}>
+                  <button
+                    key={nama}
+                    type="button"
+                    className="btn kecil"
+                    onClick={() => setPanel({ ...panel, latex: panel.latex + kode })}
+                  >
                     {nama}
                   </button>
                 ))}
               </div>
               <div className="kolom">
                 <label htmlFor="ed-rumus">Rumus (kode LaTeX)</label>
-                <textarea id="ed-rumus" value={panel.latex} spellCheck={false} onChange={(e) => setPanel({ ...panel, latex: e.target.value })} autoFocus />
+                <textarea
+                  id="ed-rumus"
+                  value={panel.latex}
+                  spellCheck={false}
+                  onChange={(e) => setPanel({ ...panel, latex: e.target.value })}
+                  autoFocus
+                />
               </div>
               <PratinjauRumus latex={panel.latex} blok={panel.blok} />
             </>
           )}
-          {galat && <p className="galat" role="alert">{galat}</p>}
+          {galat && (
+            <p className="galat" role="alert">
+              {galat}
+            </p>
+          )}
           <div className="baris">
             <button type="button" className="btn kecil utama" onClick={simpanPanel}>
               {panel.pos != null ? 'Simpan rumus' : 'Sisipkan'}
             </button>
-            <button type="button" className="btn kecil" onClick={() => { setPanel(null); setGalat('') }}>
+            <button
+              type="button"
+              className="btn kecil"
+              onClick={() => {
+                setPanel(null)
+                setGalat('')
+              }}
+            >
               Batal
             </button>
             {panel.jenis === 'rumus' && panel.pos != null && (

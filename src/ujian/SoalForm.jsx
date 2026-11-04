@@ -213,7 +213,7 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
         <span className="label-palsu" id="soal-teks-label">
           Teks soal
         </span>
-        <Suspense fallback={<Memuat teks="Memuat editor…" />}>
+        <Suspense fallback={<Memuat teks="Memuat editor…" bentuk="baris" />}>
           <EditorTeks key={`p${versi}`} nilai={prompt} onChange={setPrompt} label="Teks soal" />
         </Suspense>
       </div>
@@ -245,7 +245,7 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
                 {tetap ? (
                   <strong>{o.id === 'benar' ? 'Benar' : 'Salah'}</strong>
                 ) : (
-                  <Suspense fallback={<Memuat teks="Memuat…" />}>
+                  <Suspense fallback={<Memuat teks="Memuat…" bentuk="baris" />}>
                     <EditorTeks ringkas nilai={o.dok} onChange={(d) => ubahOpsi(o.id, d)} label={`Pilihan ${nomorOpsi(i)}`} />
                   </Suspense>
                 )}
@@ -370,7 +370,7 @@ export default function SoalForm({ awal, tipeAwal = 'pilihan_ganda', onSimpan, o
           <span className="label-palsu">
             {tipe === 'uraian' ? 'Contoh jawaban atau rubrik (boleh kosong)' : 'Pembahasan (boleh kosong)'}
           </span>
-          <Suspense fallback={<Memuat teks="Memuat editor…" />}>
+          <Suspense fallback={<Memuat teks="Memuat editor…" bentuk="baris" />}>
             <EditorTeks key={`b${versi}`} nilai={pembahasan} onChange={setPembahasan} label="Pembahasan" />
           </Suspense>
           <span className="petunjuk">Hanya terlihat siswa bila pengaturan ujian mengizinkan.</span>

@@ -4,10 +4,48 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <style>
+      #splash-awal {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f6f9;
+      }
+      @media (prefers-color-scheme: dark) {
+        #splash-awal {
+          background: #12151c;
+        }
+        #splash-awal img {
+          background: #fff;
+          padding: 2px;
+          border-radius: 14px;
+        }
+      }
+      #splash-awal img {
+        animation: d 1.4s ease-in-out infinite;
+      }
+      @keyframes d {
+        50% {
+          transform: scale(0.9);
+          opacity: 0.7;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash-awal img {
+          animation: none;
+        }
+      }
+    </style>
     <title>Kelas Online</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="splash-awal" aria-hidden="true"><img src="/logo-192.png" width="64" height="64" alt="" /></div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
