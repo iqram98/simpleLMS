@@ -13,7 +13,11 @@ export default function Forum() {
 
   const { data, error, memuat } = useMuat(async () => {
     const kelas = ambil(
-      await supabase.from('classes').select('id,name,course_id,courses(id,title,owner_id)').eq('id', kelasId).maybeSingle(),
+      await supabase
+        .from('classes')
+        .select('id,name,course_id,courses!course_id(id,title,owner_id)')
+        .eq('id', kelasId)
+        .maybeSingle(),
     )
     if (!kelas) return null
     return { kelas, kelola: adalahAdmin || kelas.courses?.owner_id === uid }

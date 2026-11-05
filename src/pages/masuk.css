@@ -1,0 +1,138 @@
+/* Halaman Masuk: banner dua kolom. Warna turunan dari aksen tema admin. */
+.ms {
+  --lp-gelap: color-mix(in srgb, var(--aksen) 38%, #050a18);
+  --lp-sedang: color-mix(in srgb, var(--aksen) 70%, #050a18);
+  --lp-emas: #fbbf5e;
+  min-height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 32px 24px;
+  color: #ffffff;
+  background-color: var(--lp-gelap);
+  background-image:
+    radial-gradient(circle at 78% 30%, var(--lp-sedang) 0%, transparent 55%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.1) 1.5px, transparent 1.5px);
+  background-size:
+    auto,
+    28px 28px;
+}
+.ms-isi {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 48px;
+  align-items: center;
+}
+.ms-kartu {
+  background: var(--kartu);
+  color: var(--fg);
+  border-radius: 20px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+}
+.ms-kartu h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+.ms-kartu p {
+  margin: 0;
+}
+.ms-merek {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.ms-kartu .btn.utama {
+  min-height: 52px;
+  font-size: 1.05rem;
+  justify-content: center;
+}
+.ms-tautan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 0.9rem;
+  padding-top: 4px;
+  border-top: 1px solid var(--garis);
+}
+.ms-kanan {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+.ms-kanan .lp-ilustrasi {
+  max-width: 420px;
+  margin: 0 auto;
+}
+.ms-judul {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+.ms-judul span {
+  color: var(--lp-emas);
+}
+.ms-poin {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.ms-poin li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.ms-poin b {
+  display: block;
+}
+.ms-poin span {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.95rem;
+}
+.ms-ikon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  display: grid;
+  place-items: center;
+}
+.ms-kanan a {
+  color: var(--lp-emas);
+  font-weight: 600;
+}
+@media (max-width: 860px) {
+  .ms {
+    align-items: flex-start;
+    padding: 16px;
+  }
+  .ms-isi {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+    max-width: 480px;
+  }
+  .ms-kartu {
+    padding: 24px 20px;
+  }
+  .ms-kanan .lp-ilustrasi {
+    max-width: 320px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms .lp-melayang {
+    animation: none;
+  }
+}

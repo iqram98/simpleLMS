@@ -2793,3 +2793,202 @@ select {
   height: 8px;
   accent-color: var(--aksen);
 }
+
+/* ---------- katalog kursus ---------- */
+.label-kursus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.label-kursus .lencana {
+  margin-left: 0;
+}
+.lencana.harga-gratis {
+  background: var(--sem-sukses-lembut);
+  color: var(--sem-sukses);
+}
+.lencana.harga-premium {
+  background: var(--sem-peringatan-lembut);
+  color: var(--sem-peringatan);
+}
+.kartu-katalog .deskripsi-katalog {
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.kartu-katalog .kartu-aksi {
+  margin-top: auto;
+}
+
+/* ---------- ulasan kursus ---------- */
+.bintang-baris {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  vertical-align: middle;
+}
+.bintang {
+  fill: none;
+  stroke: var(--redup);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.bintang.penuh {
+  fill: var(--sem-peringatan);
+  stroke: var(--sem-peringatan);
+}
+.ringkas-ulasan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--redup);
+  font-size: 0.9rem;
+}
+.pilih-bintang {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.bintang-pilihan {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.bintang-pilihan input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.bintang-pilihan svg {
+  width: 28px;
+  height: 28px;
+}
+.bintang-pilihan:focus-within {
+  outline: 2px solid var(--aksen);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.daftar-ulasan {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.butir-ulasan {
+  background: var(--kartu);
+  border: 1px solid var(--garis);
+  border-radius: var(--r-sedang);
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+.butir-ulasan.tersembunyi {
+  opacity: 0.75;
+  border-style: dashed;
+}
+.ulasan-kepala {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+.ulasan-isi {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.balasan-guru {
+  border-left: 3px solid var(--aksen);
+  background: var(--aksen-lembut);
+  border-radius: 0 8px 8px 0;
+  padding: 8px 12px;
+}
+.balasan-guru p {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.galat-teks {
+  color: var(--bahaya);
+}
+.lihat-ulasan > summary {
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+.lihat-ulasan[open] {
+  display: block;
+}
+.ulasan h2 {
+  font-size: 1.15rem;
+}
+.lihat-ulasan .ulasan > h2 {
+  display: none;
+}
+.lihat-ulasan .ulasan > .ringkas-ulasan {
+  display: none;
+}
+.ulasan-judul {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.ulasan-judul h2 {
+  margin: 0;
+}
+
+/* ---------- tugas kelompok ---------- */
+.kelola-set {
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+.kelola-set h4,
+.kelola-set h5 {
+  margin: 0 0 0.35rem;
+}
+.daftar-anggota {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.daftar-anggota li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--garis);
+}
+.daftar-anggota select {
+  max-width: 11rem;
+}
+.kelompok-saya {
+  gap: 0.15rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 3px solid var(--aksen);
+  background: color-mix(in srgb, var(--aksen) 8%, var(--kartu));
+  border-radius: 6px;
+}
+.kelompok-saya p {
+  margin: 0;
+}

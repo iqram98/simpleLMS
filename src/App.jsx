@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext.jsx'
 import Layout from './components/Layout.jsx'
@@ -6,11 +7,18 @@ import { Memuat } from './components/ui.jsx'
 import Masuk from './pages/Masuk.jsx'
 import Profil from './pages/Profil.jsx'
 import Beranda from './pages/Beranda.jsx'
+import Katalog from './katalog/Katalog.jsx'
 import Forum from './forum/Forum.jsx'
 import KelasSiswa from './pages/KelasSiswa.jsx'
 import KursusEditor from './pages/KursusEditor.jsx'
 import KelolaKelas from './pages/KelolaKelas.jsx'
 import Admin from './pages/Admin.jsx'
+
+// Halaman publik dimuat hanya saat dibutuhkan.
+const Landing = lazy(() => import('./landing/Landing.jsx'))
+const Privasi = lazy(() => import('./landing/Privasi.jsx'))
+const Syarat = lazy(() => import('./landing/Syarat.jsx'))
+const publik = (el) => <Suspense fallback={<Memuat bentuk="layar" />}>{el}</Suspense>
 
 // Penjaga: harus login, profil harus ada, akun harus aktif, nama harus terisi.
 function Terlindungi() {
@@ -18,7 +26,8 @@ function Terlindungi() {
   const lokasi = useLocation()
 
   if (memuat) return <Memuat bentuk="layar" />
-  if (!sesi) return <Navigate to="/masuk" replace />
+  // Pengunjung yang belum masuk melihat halaman awal di alamat utama, dan diarahkan ke halaman masuk di alamat lain.
+  if (!sesi) return lokasi.pathname === '/' ? publik(<Landing />) : <Navigate to="/masuk" replace />
 
   if (!profil) {
     return (
@@ -64,10 +73,13 @@ export default function App() {
       <Tooltip />
       <Routes>
         <Route path="/masuk" element={<Masuk />} />
+        <Route path="/privasi" element={publik(<Privasi />)} />
+        <Route path="/syarat" element={publik(<Syarat />)} />
         <Route element={<Terlindungi />}>
           <Route path="/profil" element={<Profil />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Beranda />} />
+            <Route path="/katalog" element={<Katalog />} />
             <Route path="/kelas/:kelasId/forum/:topikId?" element={<Forum />} />
             <Route path="/kelas/:kelasId/:pelajaranId?" element={<KelasSiswa />} />
             <Route element={<HanyaGuru />}>

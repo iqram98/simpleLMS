@@ -8,6 +8,7 @@ import { KotakGalat, Memuat } from '../components/ui.jsx'
 import { useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
 import PengumumanSiswa from '../pengumuman/PengumumanSiswa.jsx'
+import UlasanKursus from '../ulasan/UlasanKursus.jsx'
 import PanelTugas from '../tugas/PanelTugas.jsx'
 import PanelUjian from '../ujian/PanelUjian.jsx'
 
@@ -16,7 +17,7 @@ import PanelUjian from '../ujian/PanelUjian.jsx'
 // halaman ini sebagai pratinjau (tanpa tombol tandai selesai).
 export default function KelasSiswa() {
   const { kelasId, pelajaranId } = useParams()
-  const { uid } = useAuth()
+  const { uid, adalahAdmin } = useAuth()
   const navigate = useNavigate()
   const [sampingBuka, setSampingBuka] = useState(false)
   const [lipat, setLipat] = useSampingLipat('lms.samping.siswa')
@@ -253,6 +254,7 @@ export default function KelasSiswa() {
             </div>
           </section>
         )}
+        {(aktif || !status) && <UlasanKursus kursusId={k.course_id} bisaMenulis={aktif} bisaSembunyikan={adalahAdmin} />}
       </main>
     )
   }

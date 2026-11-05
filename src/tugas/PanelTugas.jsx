@@ -5,16 +5,17 @@ import { useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
 import { tandaiNilaiDilihat } from '../beranda/penanda.js'
 import { angka, waktu } from './tampil.js'
+import { teksAnggota } from '../kelompok/aturan.js'
 
 // Bagian tugas di halaman siswa: instruksi ada di blok pelajaran, di sini
 // pengaturan, formulir kirim tautan, dan status penilaian.
 // aktif=false untuk pratinjau guru (tanpa formulir).
 export default function PanelTugas({ pelajaranId, uid, aktif, onKirim }) {
   const { data, error, memuat, muatUlang } = useMuat(async () => {
-    const [st, kiriman] = await Promise.all([
+    const [st, kiriman, klp] = await Promise.all([
       supabase
         .from('tugas_pengaturan')
-        .select('tenggat,terima_terlambat,kirim_ulang,nilai_maks,maks_tautan')
+        .select('tenggat,terima_terlambat,kirim_ulang,nilai_maks,maks_tautan,kelompok_set_id')
         .eq('lesson_id', pelajaranId)
         .maybeSingle(),
       aktif
@@ -25,8 +26,11 @@ export default function PanelTugas({ pelajaranId, uid, aktif, onKirim }) {
             .eq('user_id', uid)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      aktif ? supabase.rpc('kelompok_saya', { pelajaran: pelajaranId }) : Promise.resolve({ data: [], error: null }),
     ])
-    return { st: ambil(st), kiriman: ambil(kiriman) }
+    // Baris kosong: tugas individu. kelompok_id null: tugas kelompok tetapi saya belum masuk kelompok.
+    const baris = (ambil(klp) ?? [])[0] ?? null
+    return { st: ambil(st), kiriman: ambil(kiriman), kelompok: baris }
   }, [pelajaranId, uid, aktif])
   const [ubah, setUbah] = useState(false)
   const dinilai = Boolean(aktif && data?.kiriman?.dinilai_pada)
@@ -36,12 +40,14 @@ export default function PanelTugas({ pelajaranId, uid, aktif, onKirim }) {
 
   if (memuat && !data) return <Memuat />
   if (error) return <KotakGalat galat={pesanError(error)} />
-  const { st, kiriman } = data
+  const { st, kiriman, kelompok } = data
+  const tugasKelompok = Boolean(st?.kelompok_set_id)
+  const tanpaKelompok = Boolean(aktif && tugasKelompok && !kelompok?.kelompok_id)
   if (!st) return <p className="info">Pengaturan tugas belum tersedia.</p>
 
   const lewat = st.tenggat && Date.now() > Date.parse(st.tenggat)
   const tutup = lewat && !st.terima_terlambat
-  const bisaKirim = aktif && !tutup && (!kiriman || st.kirim_ulang)
+  const bisaKirim = aktif && !tutup && !tanpaKelompok && (!kiriman || st.kirim_ulang)
 
   return (
     <section className="panel panel-tugas" aria-label="Pengumpulan tugas">
@@ -66,6 +72,25 @@ export default function PanelTugas({ pelajaranId, uid, aktif, onKirim }) {
             ? 'Tenggat sudah lewat. Kiriman sekarang ditandai terlambat.'
             : 'Tenggat sudah lewat dan tugas ini tidak menerima kiriman lagi.'}
         </p>
+      )}
+      {tugasKelompok && !aktif && <p className="info">Tugas kelompok: satu anggota mengumpulkan untuk seluruh kelompok.</p>}
+      {tanpaKelompok && (
+        <p className="info" role="status">
+          Ini tugas kelompok, tetapi kamu belum masuk kelompok. Hubungi gurumu untuk masuk kelompok.
+        </p>
+      )}
+      {aktif && kelompok?.kelompok_id && (
+        <div className="kolom kelompok-saya">
+          <p>
+            <strong>Tugas kelompok · {kelompok.nama}</strong>
+          </p>
+          <p className="petunjuk">Anggota: {teksAnggota(kelompok.anggota)}</p>
+          {kiriman && kelompok.dikirim_oleh_nama ? (
+            <p className="petunjuk">Dikumpulkan oleh {kelompok.dikirim_oleh_nama} untuk seluruh kelompok.</p>
+          ) : (
+            <p className="petunjuk">Cukup satu anggota yang mengumpulkan; semua anggota otomatis ditandai selesai.</p>
+          )}
+        </div>
       )}
       {!aktif && <p className="info">Pratinjau guru: formulir kirim hanya muncul untuk siswa.</p>}
 

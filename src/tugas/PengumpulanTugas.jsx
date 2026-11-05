@@ -17,10 +17,12 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
     const kelas = ambil(await supabase.from('classes').select('id,name').eq('course_id', kursusId).order('created_at'))
     const ids = kelas.map((k) => k.id)
     const [st, kiriman, daftar] = await Promise.all([
-      supabase.from('tugas_pengaturan').select('nilai_maks,tenggat').eq('lesson_id', pelajaranId).single(),
+      supabase.from('tugas_pengaturan').select('nilai_maks,tenggat,kelompok_set_id').eq('lesson_id', pelajaranId).single(),
       supabase
         .from('pengumpulan_tugas')
-        .select('id,user_id,tautan,catatan,dikirim_pada,terlambat,perlu_dinilai,nilai,nilai_sebelumnya,komentar')
+        .select(
+          'id,user_id,tautan,catatan,dikirim_pada,terlambat,perlu_dinilai,nilai,nilai_sebelumnya,komentar,kelompok_id,dikirim_oleh',
+        )
         .eq('lesson_id', pelajaranId),
       ids.length
         ? supabase
@@ -30,13 +32,18 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
             .eq('status', 'aktif')
         : Promise.resolve({ data: [], error: null }),
     ])
-    return { kelas, st: ambil(st), kiriman: ambil(kiriman), siswa: ambil(daftar) }
+    const setan = ambil(st)
+    const kelompok = setan.kelompok_set_id ? ambil(await supabase.rpc('daftar_kelompok', { id_set: setan.kelompok_set_id })) : []
+    return { kelas, st: setan, kiriman: ambil(kiriman), siswa: ambil(daftar), kelompok }
   }, [pelajaranId, kursusId])
 
   const kelasAktif = kelasId ?? data?.kelas[0]?.id ?? null
   const baris = useMemo(() => {
     if (!data) return []
     const per = Object.fromEntries(data.kiriman.map((k) => [k.user_id, k]))
+    const kelompokDari = {}
+    const namaOrang = {}
+    for (const g of data.kelompok) for (const a of g.anggota) ((kelompokDari[a.id] = g.nama), (namaOrang[a.id] = a.nama))
     return data.siswa
       .filter((s) => s.class_id === kelasAktif)
       .map((s) => {
@@ -47,10 +54,12 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
           nisn: s.profiles?.nisn ?? '',
           email: s.profiles?.email ?? '',
           k,
+          kelompok: kelompokDari[s.user_id] ?? '',
+          pengirim: k?.dikirim_oleh && k.dikirim_oleh !== s.user_id ? (namaOrang[k.dikirim_oleh] ?? '') : '',
           status: !k ? 'belum' : k.perlu_dinilai ? 'perlu' : 'dinilai',
         }
       })
-      .sort((a, b) => a.nama.localeCompare(b.nama, 'id'))
+      .sort((a, b) => a.kelompok.localeCompare(b.kelompok, 'id') || a.nama.localeCompare(b.nama, 'id'))
   }, [data, kelasAktif])
 
   if (memuat && !data) return <Memuat />
@@ -58,6 +67,7 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
   if (data.kelas.length === 0) return <Kosong>Belum ada kelas yang memakai kursus ini, jadi belum ada kiriman.</Kosong>
 
   const maks = data.st.nilai_maks
+  const kelompok = Boolean(data.st.kelompok_set_id)
   const terpilih = baris.find((b) => b.user_id === pilih) ?? null
   const perlu = baris.filter((b) => b.status === 'perlu')
   const hitung = (s) => baris.filter((b) => b.status === s).length
@@ -65,9 +75,20 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
 
   const unduh = () =>
     unduhCsv(`Tugas ${judul ?? ''} ${namaKelas}.csv`, [
-      ['Nama', 'NISN', 'Email', 'Status', 'Dikirim', 'Terlambat', `Nilai (maks ${maks})`, 'Komentar'],
+      [
+        'Nama',
+        ...(kelompok ? ['Kelompok'] : []),
+        'NISN',
+        'Email',
+        'Status',
+        'Dikirim',
+        'Terlambat',
+        `Nilai (maks ${maks})`,
+        'Komentar',
+      ],
       ...baris.map((b) => [
         b.nama,
+        ...(kelompok ? [b.kelompok || 'Belum masuk kelompok'] : []),
         b.nisn,
         b.email,
         STATUS[b.status],
@@ -139,6 +160,7 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
             <thead>
               <tr>
                 <th>Nama</th>
+                {kelompok && <th>Kelompok</th>}
                 <th>Status</th>
                 <th>Dikirim</th>
                 <th>Nilai</th>
@@ -151,6 +173,12 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
               {baris.map((b) => (
                 <tr key={b.user_id}>
                   <td data-label="Nama">{b.nama}</td>
+                  {kelompok && (
+                    <td data-label="Kelompok">
+                      {b.kelompok || <span className="petunjuk">Belum masuk kelompok</span>}
+                      {b.pengirim && <span className="petunjuk"> · dikirim oleh {b.pengirim}</span>}
+                    </td>
+                  )}
                   <td data-label="Status">
                     <span className={`lencana ${b.status === 'dinilai' ? 'status-aktif' : ''}`}>{STATUS[b.status]}</span>
                     {b.k?.terlambat && <span className="lencana"> Terlambat</span>}
@@ -182,6 +210,7 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
           key={`${terpilih.k.id}-${terpilih.k.dikirim_pada}`}
           baris={terpilih}
           maks={maks}
+          kelompok={kelompok}
           onSelesai={() => {
             muatUlang()
           }}
@@ -191,20 +220,31 @@ export default function PengumpulanTugas({ pelajaranId, kursusId, judul }) {
   )
 }
 
-function Penilaian({ baris, maks, onSelesai }) {
+function Penilaian({ baris, maks, kelompok, onSelesai }) {
   const k = baris.k
   const { sibuk, galat, setGalat, jalankan } = useAksi()
   const [nilai, setNilai] = useState(k.nilai == null ? '' : String(k.nilai))
   const [komentar, setKomentar] = useState(k.komentar ?? '')
   const [tersimpan, setTersimpan] = useState(false)
 
-  const simpan = (e) => {
+  const [info, setInfo] = useState('')
+  // Tugas kelompok: tombol utama menilai seluruh kelompok; tombol kedua hanya satu anggota.
+  const untukKelompok = kelompok && Boolean(k.kelompok_id)
+
+  const simpan = (e, semua = false) => {
     e.preventDefault()
     const n = Number(String(nilai).replace(',', '.'))
     if (String(nilai).trim() === '' || !Number.isFinite(n) || n < 0 || n > maks)
       return setGalat(`Nilai harus antara 0 dan ${angka(maks)}.`)
     return jalankan(async () => {
-      ambil(await supabase.rpc('nilai_tugas', { id_pengumpulan: k.id, nilai_baru: n, komentar_baru: komentar.trim() || null }))
+      const args = { id_pengumpulan: k.id, nilai_baru: n, komentar_baru: komentar.trim() || null }
+      if (semua) {
+        const jumlah = ambil(await supabase.rpc('nilai_kelompok', args))
+        setInfo(`Nilai disimpan untuk ${jumlah} anggota kelompok.`)
+      } else {
+        ambil(await supabase.rpc('nilai_tugas', args))
+        setInfo('')
+      }
       setTersimpan(true)
       onSelesai()
     })
@@ -213,6 +253,12 @@ function Penilaian({ baris, maks, onSelesai }) {
   return (
     <section className="panel" aria-label={`Kiriman ${baris.nama}`}>
       <h3>{baris.nama}</h3>
+      {untukKelompok && (
+        <p className="info">
+          Tugas kelompok{baris.kelompok ? ` (${baris.kelompok})` : ''}. &quot;Simpan untuk seluruh kelompok&quot; menimpa nilai
+          semua anggota, termasuk yang sudah kamu sesuaikan satu per satu.
+        </p>
+      )}
       <p className="petunjuk">
         Dikirim {waktu(k.dikirim_pada)}
         {k.terlambat ? ' · terlambat' : ''}
@@ -258,12 +304,17 @@ function Penilaian({ baris, maks, onSelesai }) {
         </div>
         <KotakGalat galat={galat} onTutup={() => setGalat('')} />
         <div className="baris">
-          <button type="submit" className="btn utama" disabled={sibuk}>
-            {k.nilai == null ? 'Simpan penilaian' : 'Perbarui penilaian'}
+          {untukKelompok && (
+            <button type="button" className="btn utama" disabled={sibuk} onClick={(e) => simpan(e, true)}>
+              Simpan untuk seluruh kelompok
+            </button>
+          )}
+          <button type="submit" className={`btn ${untukKelompok ? '' : 'utama'}`} disabled={sibuk}>
+            {untukKelompok ? `Simpan hanya untuk ${baris.nama}` : k.nilai == null ? 'Simpan penilaian' : 'Perbarui penilaian'}
           </button>
           {tersimpan && (
             <span role="status" className="petunjuk">
-              Tersimpan.
+              {info || 'Tersimpan.'}
             </span>
           )}
         </div>

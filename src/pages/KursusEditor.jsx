@@ -10,6 +10,9 @@ import PanelTugas from '../tugas/PanelTugas.jsx'
 import PengaturanTugas from '../tugas/PengaturanTugas.jsx'
 import PengumpulanTugas from '../tugas/PengumpulanTugas.jsx'
 import { BlokView, DaftarBlok } from '../components/Isi.jsx'
+import PengaturanKatalog from '../katalog/PengaturanKatalog.jsx'
+import KelompokKursus from '../kelompok/KelompokKursus.jsx'
+import UlasanKursus from '../ulasan/UlasanKursus.jsx'
 import Ikon, { TautanIkon, TombolIkon } from '../components/Ikon.jsx'
 import { Fab, Rail, TombolLipat, useSampingLipat } from '../components/Samping.jsx'
 import { Kosong, KotakGalat, MenuTitik, Memuat, TombolKonfirmasi, TombolSalin, UbahDiTempat } from '../components/ui.jsx'
@@ -30,7 +33,11 @@ export default function KursusEditor() {
 
   const { data, error, memuat, muatUlang } = useMuat(async () => {
     const [kursus, modul, kelas] = await Promise.all([
-      supabase.from('courses').select('id,title,description,owner_id').eq('id', kursusId).maybeSingle(),
+      supabase
+        .from('courses')
+        .select('id,title,description,owner_id,visibilitas,harga_tipe,kelas_publik_id')
+        .eq('id', kursusId)
+        .maybeSingle(),
       supabase
         .from('modules')
         .select('id,title,position,lessons(id,title,position,is_published,kind)')
@@ -144,6 +151,8 @@ export default function KursusEditor() {
       ambil(await supabase.from('courses').delete().eq('id', kursusId).select('id'))
       navigate('/')
     })
+  const simpanKatalog = ({ mode, harga, kelas }) =>
+    ubah(async () => ambil(await supabase.rpc('atur_katalog', { kursus: kursusId, mode, harga, kelas })))
   const buatKelas = (nama) =>
     ubah(async () => ambil(await supabase.from('classes').insert({ course_id: kursusId, name: nama }).select('id')))
 
@@ -328,6 +337,8 @@ export default function KursusEditor() {
             onUbahKursus={ubahKursus}
             onHapusKursus={hapusKursus}
             onBuatKelas={buatKelas}
+            onSimpanKatalog={simpanKatalog}
+            adalahAdmin={adalahAdmin}
           />
         )}
       </div>
@@ -436,7 +447,7 @@ function TambahTeks({ label, nama, onSimpan, disabled }) {
 
 /* ---------- ringkasan kursus dan kelas ---------- */
 
-function Ringkasan({ kursus, kelas, sibuk, onUbahKursus, onHapusKursus, onBuatKelas }) {
+function Ringkasan({ kursus, kelas, sibuk, onUbahKursus, onHapusKursus, onBuatKelas, onSimpanKatalog, adalahAdmin }) {
   return (
     <>
       <div className="kepala-pelajaran">
@@ -494,6 +505,12 @@ function Ringkasan({ kursus, kelas, sibuk, onUbahKursus, onHapusKursus, onBuatKe
         )}
         <TambahTeks label="+ Kelas" nama="Nama kelas (misalnya 8A)" disabled={sibuk} onSimpan={onBuatKelas} />
       </section>
+
+      <PengaturanKatalog kursus={kursus} kelas={kelas} sibuk={sibuk} onSimpan={onSimpanKatalog} />
+
+      <KelompokKursus kursusId={kursus.id} />
+
+      <UlasanKursus kursusId={kursus.id} bisaBalas bisaSembunyikan={adalahAdmin} />
 
       <section className="panel zona-bahaya" aria-labelledby="judul-hapus-kursus">
         <h3 id="judul-hapus-kursus">Hapus kursus</h3>
@@ -679,7 +696,7 @@ function EditorPelajaran({ kursusId, pelajaran, modulItem, onUbahDaftar, onSeles
           )}
           {ujian && tab === 'soal' && <DaftarSoal pelajaranId={pelajaran.id} />}
           {ujian && tab === 'pengaturan' && <PengaturanUjian pelajaranId={pelajaran.id} />}
-          {tugas && tab === 'pengaturan' && <PengaturanTugas pelajaranId={pelajaran.id} />}
+          {tugas && tab === 'pengaturan' && <PengaturanTugas pelajaranId={pelajaran.id} kursusId={kursusId} />}
           {tugas && tab === 'hasil' && (
             <PengumpulanTugas pelajaranId={pelajaran.id} kursusId={kursusId} judul={pelajaran.title} />
           )}

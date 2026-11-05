@@ -13,10 +13,10 @@ export default function PerluTindakan() {
   const { uid } = useAuth()
   const { data, error, memuat, muatUlang } = useMuat(async () => {
     const [kursus, gabung, tugas, uraian, laporan] = await Promise.all([
-      supabase.from('courses').select('id,title,classes(id,name,is_archived)').eq('owner_id', uid),
+      supabase.from('courses').select('id,title,classes!course_id(id,name,is_archived)').eq('owner_id', uid),
       supabase
         .from('enrollments')
-        .select('id,class_id,classes!inner(name,course_id,courses!inner(title,owner_id))')
+        .select('id,class_id,classes!inner(name,course_id,courses!course_id!inner(title,owner_id))')
         .eq('status', 'menunggu')
         .eq('classes.courses.owner_id', uid)
         .limit(1000),

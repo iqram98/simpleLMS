@@ -23,6 +23,12 @@ export function ambil(hasil) {
 const PESAN = {
   harus_login: 'Silakan masuk terlebih dahulu.',
   tidak_berwenang: 'Anda tidak berwenang melakukan ini.',
+  kelas_katalog_tidak_valid: 'Pilih satu kelas aktif milik kursus ini sebagai kelas katalog.',
+  bukan_peserta: 'Hanya siswa yang sudah bergabung di kursus ini yang bisa memberi ulasan.',
+  bintang_tidak_valid: 'Pilih jumlah bintang 1 sampai 5.',
+  komentar_terlalu_panjang: 'Teks terlalu panjang (maksimal 500 karakter).',
+  mode_tidak_valid: 'Pilihan visibilitas tidak dikenal.',
+  harga_tidak_valid: 'Pilihan harga tidak dikenal.',
   admin_terakhir: 'Tidak bisa dilakukan karena ini admin terakhir.',
   admin_harus_guru: 'Admin harus berperan guru.',
   tidak_dapat_mengajukan: 'Pengajuan tidak dapat dilakukan.',
@@ -45,6 +51,14 @@ const PESAN = {
   catatan_terlalu_panjang: 'Catatan terlalu panjang (maksimal 2000 karakter).',
   komentar_terlalu_panjang: 'Komentar terlalu panjang (maksimal 2000 karakter).',
   nilai_tidak_valid: 'Nilai harus antara 0 dan nilai maksimum tugas.',
+  belum_masuk_kelompok: 'Kamu belum masuk kelompok. Hubungi gurumu untuk masuk kelompok.',
+  tugas_sudah_ada_kiriman: 'Jenis tugas tidak bisa diubah karena sudah ada kiriman.',
+  set_dipakai: 'Set ini masih dipakai tugas, jadi tidak bisa dihapus.',
+  kelompok_punya_kiriman: 'Kelompok ini sudah punya kiriman, jadi tidak bisa dihapus.',
+  siswa_tidak_valid: 'Siswa tidak valid atau belum aktif di kursus ini.',
+  jumlah_tidak_valid: 'Jumlah kelompok tidak valid.',
+  nama_tidak_valid: 'Nama tidak valid (1 sampai 80 karakter).',
+  kelompok_set_unik: 'Nama itu sudah dipakai. Pilih nama lain.',
 }
 
 // Mengubah galat teknis menjadi kalimat yang dapat dipahami pengguna.

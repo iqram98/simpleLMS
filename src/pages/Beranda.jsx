@@ -7,6 +7,7 @@ import { useAksi, useMuat } from '../lib/hooks.js'
 import { ambil, pesanError, supabase } from '../lib/supabase.js'
 import LanjutBelajar from '../beranda/LanjutBelajar.jsx'
 import PerluTindakan from '../beranda/PerluTindakan.jsx'
+import { labelHarga, labelMode } from '../katalog/aturan.js'
 
 const PESAN_GABUNG = {
   menunggu: 'Permintaan terkirim. Tunggu persetujuan guru, lalu kelasmu akan muncul di sini.',
@@ -103,7 +104,11 @@ function KelasDiikuti({ guru }) {
         <h2 id="judul-kelas">{aktif.length > 0 ? 'Permintaan dan gabung kelas' : 'Kelas yang saya ikuti'}</h2>
         {memuat && !data && <Memuat />}
         <KotakGalat galat={error && pesanError(error)} />
-        {data && data.length === 0 && <Kosong>Belum ada kelas. Masukkan kode kelas dari gurumu di bawah.</Kosong>}
+        {data && data.length === 0 && (
+          <Kosong>
+            Belum ada kelas. Masukkan kode kelas dari gurumu di bawah, atau <Link to="/katalog">lihat katalog kursus</Link>.
+          </Kosong>
+        )}
         {lain.length > 0 && (
           <div className="kartu-grid">
             {lain.map((d) => (
@@ -185,7 +190,7 @@ function KursusSaya() {
       ambil(
         await supabase
           .from('courses')
-          .select('id,title,description,classes(id,name,is_archived)')
+          .select('id,title,description,visibilitas,harga_tipe,classes!course_id(id,name,is_archived)')
           .eq('owner_id', uid)
           .order('created_at'),
       ),
@@ -218,6 +223,10 @@ function KursusSaya() {
             <div className="kartu kartu-kursus" key={k.id}>
               <div className="kursus-kepala">
                 <h3>{k.title}</h3>
+                <div className="label-kursus">
+                  <span className={`lencana harga-${k.harga_tipe}`}>{labelHarga(k.harga_tipe)}</span>
+                  <span className="lencana">{labelMode(k.visibilitas)}</span>
+                </div>
                 <p className="petunjuk">
                   {k.classes.length === 0 ? 'Belum ada kelas' : `${k.classes.length} kelas`}
                   {k.classes.some((c) => c.is_archived) && ` · ${k.classes.filter((c) => c.is_archived).length} diarsipkan`}

@@ -19,7 +19,7 @@ export default function Admin() {
       supabase.from('profiles').select('id,email,full_name,role,is_admin,is_active,nisn,nip,mata_pelajaran,no_hp').order('email'),
       supabase
         .from('courses')
-        .select('id,title,owner:profiles!courses_owner_id_fkey(full_name,email),classes(id)')
+        .select('id,title,owner:profiles!courses_owner_id_fkey(full_name,email),classes!course_id(id)')
         .order('created_at'),
     ])
     return { pengguna: ambil(pengguna), kursus: ambil(kursus) }

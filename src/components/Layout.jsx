@@ -111,6 +111,7 @@ export default function Layout() {
             <NavLink to="/" end>
               Beranda
             </NavLink>
+            <NavLink to="/katalog">Katalog</NavLink>
             {adalahAdmin && <NavLink to="/admin">Admin</NavLink>}
           </div>
           <div className="nav-alat">

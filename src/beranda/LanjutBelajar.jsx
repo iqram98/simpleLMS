@@ -17,7 +17,7 @@ export default function LanjutBelajar({ kelas }) {
 
   const { data, error, memuat } = useMuat(async () => {
     if (idKelas.length === 0) return { kartu: [], tenggat: [], nilaiBaru: [] }
-    const info = ambil(await supabase.from('classes').select('id,name,course_id,courses(title)').in('id', idKelas))
+    const info = ambil(await supabase.from('classes').select('id,name,course_id,courses!course_id(title)').in('id', idKelas))
     const idKursus = [...new Set(info.map((k) => k.course_id))]
     const [modul, selesai, progres, tugas, ujian, pengumuman, nilai] = await Promise.all([
       supabase

@@ -16,7 +16,7 @@ export default function KelolaKelas() {
     const kelas = ambil(
       await supabase
         .from('classes')
-        .select('id,name,join_code,is_archived,course_id,courses(id,title)')
+        .select('id,name,join_code,is_archived,course_id,courses!course_id(id,title)')
         .eq('id', kelasId)
         .maybeSingle(),
     )
